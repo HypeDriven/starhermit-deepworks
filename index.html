@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#140b06">
+<meta name="description" content="Deepworks — an idle optimization game. Assign workers, upgrade shafts and transport, and optimize throughput in a glowing underground mine.">
+<title>Deepworks</title>
+<link rel="stylesheet" href="css/styles.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%23140b06'/><path d='M8 2l4 6-4 6-4-6z' fill='%23ff9a3c'/></svg>">
+</head>
+<body>
+<a class="skip-link" href="#main-ui">Skip to game controls</a>
+<div id="app">
+  <!-- Three.js canvas host: never the only UI (spec §3) -->
+  <div id="scene-host" aria-hidden="true"></div>
+  <!-- DOM labels aligned to projected 3D targets -->
+  <div id="layer-labels" aria-hidden="true"></div>
+
+  <main id="main-ui">
+    <!-- ======================= PLAY HUD ======================= -->
+    <div id="hud" class="hidden" role="region" aria-label="Mine controls">
+      <header id="hud-top">
+        <div id="hud-objective" class="hud-cell">
+          <span class="hud-label">Objective</span>
+          <span id="objective-text">—</span>
+          <div id="objective-bar" class="meter" hidden><div id="objective-fill"></div></div>
+        </div>
+        <div id="hud-resources" class="hud-cell" role="status" aria-live="off">
+          <span class="res" title="Credits"><span class="res-ico" aria-hidden="true">◈</span><span id="res-credits">0</span></span>
+          <span class="res" title="Income per second"><span class="res-ico" aria-hidden="true">↻</span><span id="res-income">0/s</span></span>
+          <span class="res" title="Workers (idle/total)"><span class="res-ico" aria-hidden="true">⚒</span><span id="res-workers">0/0</span></span>
+        </div>
+        <div id="hud-clock" class="hud-cell">
+          <span id="hud-timer">0:00</span>
+          <button id="btn-pause" class="btn icon-btn" aria-label="Pause (Esc)">⏸</button>
+        </div>
+      </header>
+
+      <aside id="hud-left" class="rail" aria-label="Objective and progress">
+        <h2 class="rail-title">Shift Report</h2>
+        <div id="left-rail-body"></div>
+      </aside>
+
+      <aside id="hud-right" class="rail" aria-label="Actions">
+        <h2 class="rail-title">Foreman's Panel</h2>
+        <div id="right-rail-body"></div>
+      </aside>
+
+      <nav id="hud-bottom" aria-label="Quick actions"></nav>
+
+      <button id="rail-toggle-left" class="rail-toggle" aria-label="Toggle shift report" aria-expanded="false">◧</button>
+      <button id="rail-toggle-right" class="rail-toggle" aria-label="Toggle actions" aria-expanded="false">◨</button>
+
+      <div id="lesson-banner" class="hidden" role="note"></div>
+      <div id="countdown" class="hidden" aria-live="assertive"></div>
+    </div>
+
+    <!-- ======================= SCREENS ======================= -->
+    <section id="screen-boot" class="screen active" aria-label="Loading">
+      <div class="panel boot-panel">
+        <h1 class="game-logo">DEEP<span>WORKS</span></h1>
+        <div class="meter big"><div id="boot-fill"></div></div>
+        <p id="boot-status">Waking the lift…</p>
+      </div>
+    </section>
+
+    <section id="screen-title" class="screen" aria-label="Title">
+      <div class="panel title-panel">
+        <h1 class="game-logo">DEEP<span>WORKS</span></h1>
+        <p class="tagline">Assign. Upgrade. Optimize. The seams are glowing.</p>
+        <div id="resume-banner" class="hidden"></div>
+        <div class="title-buttons">
+          <button id="btn-play" class="btn primary big">Play</button>
+          <button id="btn-daily" class="btn">Daily Vein <span id="daily-countdown" class="subtle"></span></button>
+          <button id="btn-journey" class="btn">Journey <span id="journey-progress-label" class="subtle"></span></button>
+          <button id="btn-profile" class="btn ghost">Profile</button>
+        </div>
+        <nav class="title-links" aria-label="Secondary">
+          <button id="btn-help" class="btn link">How to play</button>
+          <button id="btn-boards" class="btn link">Leaderboards</button>
+          <button id="btn-settings" class="btn link">Settings</button>
+        </nav>
+        <p id="title-identity" class="subtle"></p>
+      </div>
+    </section>
+
+    <section id="screen-modes" class="screen" aria-label="Choose mode">
+      <div class="panel wide">
+        <h2>Choose your shift</h2>
+        <div id="mode-grid" class="card-grid"></div>
+        <button class="btn ghost back-btn" data-back>← Back</button>
+      </div>
+    </section>
+
+    <section id="screen-setup" class="screen" aria-label="Mode setup">
+      <div class="panel" id="setup-panel"></div>
+    </section>
+
+    <section id="screen-journey" class="screen" aria-label="Journey progression">
+      <div class="panel wide">
+        <h2>Journey</h2>
+        <p class="subtle" id="journey-summary"></p>
+        <div id="journey-grid" class="journey-grid"></div>
+        <button class="btn ghost back-btn" data-back>← Back</button>
+      </div>
+    </section>
+
+    <section id="screen-boards" class="screen" aria-label="Leaderboards">
+      <div class="panel" id="boards-panel"></div>
+    </section>
+
+    <section id="screen-help" class="screen" aria-label="Help">
+      <div class="panel wide">
+        <h2>How to play</h2>
+        <div id="help-body"></div>
+        <button class="btn ghost back-btn" data-back>← Back</button>
+      </div>
+    </section>
+
+    <section id="screen-settings" class="screen" aria-label="Settings">
+      <div class="panel" id="settings-panel"></div>
+    </section>
+
+    <section id="screen-results" class="screen" aria-label="Results" aria-live="polite">
+      <div class="panel" id="results-panel"></div>
+    </section>
+
+    <section id="screen-profile" class="screen" aria-label="Profile">
+      <div class="panel" id="profile-panel"></div>
+    </section>
+  </main>
+
+  <div id="modal-root"></div>
+  <div id="toast-root" aria-live="polite"></div>
+  <div id="caption-root" aria-hidden="false"></div>
+  <div id="live-polite" class="sr-only" aria-live="polite"></div>
+  <div id="live-assertive" class="sr-only" aria-live="assertive"></div>
+</div>
+
+<script src="vendor/three.min.js"></script>
+<script src="js/rules.js"></script>
+<script src="js/content.js"></script>
+<script src="js/session.js"></script>
+<script src="js/platform.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/render.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
