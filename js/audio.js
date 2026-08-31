@@ -113,10 +113,64 @@
     undo:          { fn: function () { tone('effects', 500, 0.09, 'sine', 0.1, 0.75); }, caption: 'Undone' }
   };
 
+  // ------------------------------------------------------- sample one-shots ---
+  // Authored clips live in sfx/<name>.opus (see sfx/manifest.json). They are
+  // fetched lazily after the user-gesture unlock, decoded once, and cached.
+  // While a clip is loading or unavailable, the synthesized fallback plays.
+  var SAMPLE_BY_EVENT = {
+    ui_click: 'ui-click',
+    ui_back: 'ui-back',
+    error: 'error-denied',
+    assign: 'worker-assign',
+    unassign: 'worker-recall',
+    hire: 'worker-hire',
+    upgrade: 'upgrade-complete',
+    unlock_layer: 'layer-unlock',
+    claim_flare: 'flare-claim',
+    flare_started: 'flare-warning',
+    coin: 'coin-clink',
+    foreman: 'foreman-whistle',
+    terminal_win: 'shift-victory',
+    terminal_lose: 'shift-defeat',
+    undo: 'undo-swipe'
+  };
+  var sampleCache = {};   // name -> AudioBuffer
+  var samplePending = {}; // name -> true while fetch/decode is in flight
+  var sampleFailed = {};  // name -> true after failure (synthesis stays the fallback)
+
+  function loadSample(name) {
+    if (!ctx || typeof fetch !== 'function') return;
+    if (sampleCache[name] || samplePending[name] || sampleFailed[name]) return;
+    samplePending[name] = true;
+    fetch('sfx/' + name + '.opus')
+      .then(function (res) {
+        if (!res.ok) throw new Error('http ' + res.status);
+        return res.arrayBuffer();
+      })
+      .then(function (bytes) { return ctx.decodeAudioData(bytes); })
+      .then(function (buf) { sampleCache[name] = buf; delete samplePending[name]; })
+      .catch(function () { sampleFailed[name] = true; delete samplePending[name]; });
+  }
+
   function play(name) {
     if (!ctx || muted) { var s0 = SOUNDS[name]; if (s0 && s0.caption) caption(s0.caption); return; }
     var s = SOUNDS[name];
     if (!s) return;
+    var sampleName = SAMPLE_BY_EVENT[name];
+    if (sampleName) {
+      var buf = sampleCache[sampleName];
+      if (buf) {
+        try {
+          var src = ctx.createBufferSource();
+          src.buffer = buf;
+          src.connect(buses.effects); // respects effects volume + master mute
+          src.start();
+        } catch (e) { try { s.fn(); } catch (e2) {} }
+        if (s.caption) caption(s.caption);
+        return;
+      }
+      loadSample(sampleName);
+    }
     try { s.fn(); } catch (e) {}
     if (s.caption) caption(s.caption);
   }

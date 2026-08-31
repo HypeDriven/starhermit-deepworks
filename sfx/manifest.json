@@ -1,0 +1,92 @@
+[
+  {
+    "name": "ui-click",
+    "seconds": 1,
+    "prompt": "A single short crisp click of a small wooden toggle switch being pressed, dry and close",
+    "event": "ui_click"
+  },
+  {
+    "name": "ui-back",
+    "seconds": 1,
+    "prompt": "A soft low wooden thunk followed by a brief airy whoosh, like closing a small drawer",
+    "event": "ui_back"
+  },
+  {
+    "name": "error-denied",
+    "seconds": 1,
+    "prompt": "A dull double knock of a rubber mallet on a hollow wooden crate, muted and low",
+    "event": "error"
+  },
+  {
+    "name": "worker-assign",
+    "seconds": 1,
+    "prompt": "A single sharp pickaxe strike against hard rock with a brief stony echo in a mine tunnel",
+    "event": "assign"
+  },
+  {
+    "name": "worker-recall",
+    "seconds": 1,
+    "prompt": "Two soft boot steps scuffing backward on loose gravel in a quiet tunnel",
+    "event": "unassign"
+  },
+  {
+    "name": "worker-hire",
+    "seconds": 1,
+    "prompt": "A small brass hand bell rung twice brightly, like a foreman calling a new hire over",
+    "event": "hire"
+  },
+  {
+    "name": "upgrade-complete",
+    "seconds": 2,
+    "prompt": "A ratchet wrench clicking rapidly three times then a solid metal clank as a bolt seats home",
+    "event": "upgrade"
+  },
+  {
+    "name": "layer-unlock",
+    "seconds": 3,
+    "prompt": "A massive stone slab door grinding open with a deep subterranean rumble and falling pebbles",
+    "event": "unlock_layer"
+  },
+  {
+    "name": "flare-claim",
+    "seconds": 2,
+    "prompt": "A cascade of small crystals and coins pouring and clinking into a shallow metal pan",
+    "event": "claim_flare"
+  },
+  {
+    "name": "flare-warning",
+    "seconds": 2,
+    "prompt": "A rising hiss of pressurized gas venting from a rock fissure with a faint deep tremor",
+    "event": "flare_started"
+  },
+  {
+    "name": "coin-clink",
+    "seconds": 1,
+    "prompt": "A single small gold coin clinking once against a stack of coins on a metal surface",
+    "event": "coin"
+  },
+  {
+    "name": "foreman-whistle",
+    "seconds": 1,
+    "prompt": "A short sharp blow of a wooden foreman's whistle, single piercing chirp with tunnel reverb",
+    "event": "foreman"
+  },
+  {
+    "name": "shift-victory",
+    "seconds": 3,
+    "prompt": "A large brass mine bell struck three times in celebration, ringing out with long cavernous reverb",
+    "event": "terminal_win"
+  },
+  {
+    "name": "shift-defeat",
+    "seconds": 2,
+    "prompt": "Old mine timbers creaking and groaning as they settle, ending in a low weary thud",
+    "event": "terminal_lose"
+  },
+  {
+    "name": "undo-swipe",
+    "seconds": 1,
+    "prompt": "A quick reverse paper-like swipe, a soft fast whoosh sliding from high to low",
+    "event": "undo"
+  }
+]
