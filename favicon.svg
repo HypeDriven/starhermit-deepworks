@@ -1,4 +1,9 @@
-<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='hsl(230 60% 55%)'/><stop offset='1' stop-color='hsl(280 60% 40%)'/></linearGradient></defs>
-<rect width='64' height='64' rx='14' fill='url(#g)'/>
-<text x='32' y='44' font-size='34' text-anchor='middle' fill='#ffffff' font-family='Verdana,sans-serif' font-weight='bold'>D</text>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>
+  <rect width='64' height='64' rx='13' fill='#100a06'/>
+  <path d='M4 47 L18 39 L30 47 L44 37 L60 45' stroke='#3a2a1c' stroke-width='9' fill='none' stroke-linecap='round' stroke-linejoin='round'/>
+  <path d='M4 47 L18 39 L30 47 L44 37 L60 45' stroke='#ff9a3c' stroke-width='5' fill='none' stroke-linecap='round' stroke-linejoin='round'/>
+  <path d='M32 7 L47 22 L32 37 L17 22 Z' fill='#ffb35c'/>
+  <path d='M32 13 L41 22 L32 31 L23 22 Z' fill='#ff9a3c'/>
+  <circle cx='13' cy='55' r='3.5' fill='#7dff9e'/>
+  <circle cx='51' cy='55' r='3.5' fill='#7dff9e'/>
 </svg>
