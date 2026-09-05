@@ -190,11 +190,17 @@ function sortBoard(board) {
 }
 function submitScore(dayKey, entry) {
   const board = dayBoard(dayKey);
-  const existing = board.findIndex((e) => e.name === entry.name);
+  // Board identity is the player's stable id, not their freely-chosen display
+  // name (spec §6). A name collision must not let one player replace another's
+  // entry, so identity is keyed on playerId, falling back to name only for
+  // legacy rows saved before playerId existed.
+  const samePlayer = (e) =>
+    (e.playerId !== undefined ? e.playerId === entry.playerId : e.name === entry.name);
+  const existing = board.findIndex(samePlayer);
   if (existing >= 0) {
     if (board[existing].score >= entry.score) {
       sortBoard(board);
-      return board.findIndex((e) => e.name === entry.name) + 1;
+      return board.findIndex(samePlayer) + 1;
     }
     board.splice(existing, 1);
   }
@@ -202,16 +208,17 @@ function submitScore(dayKey, entry) {
   sortBoard(board);
   if (board.length > BOARD_SIZE) board.length = BOARD_SIZE;
   store.dirty.scores = true;
-  const rank = board.findIndex((e) => e.name === entry.name && e.score === entry.score && e.when === entry.when) + 1;
+  const rank = board.findIndex((e) => samePlayer(e) && e.score === entry.score && e.when === entry.when) + 1;
   return rank;
 }
 function globalBoard() {
-  const best = new Map(); // name -> best entry
+  const best = new Map(); // playerId -> best entry
   const s = scores();
   for (const dayKey of Object.keys(s.days)) {
     for (const e of s.days[dayKey]) {
-      const cur = best.get(e.name);
-      if (!cur || e.score > cur.score) best.set(e.name, e);
+      const key = e.playerId !== undefined ? e.playerId : e.name;
+      const cur = best.get(key);
+      if (!cur || e.score > cur.score) best.set(key, e);
     }
   }
   const entries = Array.from(best.values());
@@ -292,6 +299,11 @@ function submitDailyScore(res, body) {
   if (typeof dayKey !== 'string' || !/^daily-\d{4}-\d{2}-\d{2}$/.test(dayKey)) {
     return sendError(res, 400, 'bad-day-key');
   }
+  // A daily is one shared seed per UTC day (spec §2). Only the server's own
+  // current UTC day is submittable — past and future days are not open.
+  if (dayKey !== DWContent.dailyInfo(new Date()).id) {
+    return sendError(res, 409, 'day-not-current');
+  }
   if (body.contentVersion !== DWContent.CONTENT_VERSION) {
     return sendError(res, 409, 'stale-version');
   }
@@ -306,10 +318,11 @@ function submitDailyScore(res, body) {
   if (!validLog(body.log)) {
     return sendError(res, 400, 'malformed-log');
   }
-  const durationSec = Number(body.durationSec);
-  if (!Number.isFinite(durationSec) || durationSec < 0 || durationSec > 86400) {
-    return sendError(res, 422, 'implausible');
+  if (typeof body.playerId !== 'string' || body.playerId.length > 64 ||
+      !/^[A-Za-z0-9_-]+$/.test(body.playerId)) {
+    return sendError(res, 422, 'bad-player-id');
   }
+  const playerId = body.playerId;
 
   // Authoritative deterministic replay; the client-reported score is ignored.
   let replayRes;
@@ -325,11 +338,15 @@ function submitDailyScore(res, body) {
   if (!(score >= 0)) {
     return sendError(res, 422, 'implausible');
   }
+  // Authoritative elapsed time: derive it from the replayed simulation (whole
+  // seconds advanced), not from what the client declared (spec §2 tie-break).
+  const elapsedSec = replayRes.state.tick;
 
   const entry = {
     name: sanitizeName(body.name, 'Anonymous'),
+    playerId: playerId,
     score: score,
-    durationSec: durationSec,
+    durationSec: elapsedSec,
     dayKey: dayKey,
     when: Date.now()
   };
@@ -339,7 +356,13 @@ function submitDailyScore(res, body) {
 
 // ----------------------------------------------------------------- static ---
 function serveStatic(req, res, url) {
-  let pathname = decodeURIComponent(url.pathname);
+  let pathname;
+  try {
+    pathname = decodeURIComponent(url.pathname);
+  } catch (e) {
+    // malformed percent-encoding is a bad request, not a crash
+    return sendError(res, 400, 'bad-request');
+  }
   if (pathname === '/') pathname = '/index.html';
   const filePath = path.resolve(ROOT, '.' + pathname);
   if (filePath !== ROOT && !filePath.startsWith(ROOT + path.sep)) {

@@ -1,0 +1,11 @@
+{
+  "name": "deepworks",
+  "private": true,
+  "scripts": {
+    "test": "node tests/run.js",
+    "test:e2e": "node tests/e2e.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.62.1"
+  }
+}

@@ -7,144 +7,73 @@ alongside the game's own test suites and headless-Chrome smoke.
 
 | Check | Result |
 | --- | --- |
-| `npm test` | not available — this game ships no `package.json`; `npm test` exits with `ENOENT ... /deepworks/package.json` |
+| `npm test` | 5210/5210 pass, 0 fail (suite: `node tests/run.js`) |
 | `node tests/run.js` | 5210/5210 pass, 0 fail (legal actions, simulation & economy, terminals, scoring, serialization & migration, deterministic replay, fuzz, content validation, golden sessions, undo, away simulation) |
 | `node tests/balance.js` | all 6 challenges won, all 7 upcoming dailies won, `journey fails: 0` |
-| `node tests/smoke.js` (headless Chrome via CDP, against `PORT=39309 node server.js`) | PASS — title → modes → play → pause/resume → results → journey → help → lesson, "console problems: none" |
+| `node tests/e2e.mjs` / `npm run test:e2e` | E2E PASS — both viewport passes clean, no page errors |
 | `node --check` on all modules | clean (`js/*.js`, `server.js`, `tests/*.js`) |
-| HTTP fuzz of `server.js` | **found a remote crash** — see confirmed defect 1 |
+| HTTP fuzz of `server.js` | clean after the defect-1 decode guard |
 
-## Confirmed defects
+## Resolved (fixes applied 2026-09-04)
 
-Defect 1 was reproduced against a freshly started `server.js` whose PID I tracked. Defects 2-4 were
-reproduced against a copy of the server in a scratch directory. Defects 5 and 6 were reproduced against
-the shipped `js/rules.js` and `js/session.js` directly.
+All six confirmed defects below were re-verified against the current source before fixing;
+each still reproduced in the original code and is now fixed.
 
-### 1. `GET /%` — any malformed percent-encoding kills the server process
+### 1. `GET /%` — malformed percent-encoding could kill the server — RESOLVED
 
-- **File:** `server.js:341` (`let pathname = decodeURIComponent(url.pathname);` inside `serveStatic`)
-- **Trigger:** one unauthenticated request — `GET /%`.
-- **Behaviour:** `decodeURIComponent` throws `URIError: URI malformed`. The dispatcher wraps only the API
-  branch in error handling (`server.js:374`, `handleApi(...).catch(...)`); the static branch at
-  `server.js:376` calls `serveStatic` bare, and there is no `try/catch` around the handler and no
-  `process.on('uncaughtException')`. Node exits.
-- **Expected:** a malformed URL is a 400, not a service outage. (The `try { url = new URL(...) } catch`
-  at `server.js:367-372` shows the intent; the decode step just was not covered.)
-- **Evidence:**
+- **Fix:** `server.js:342-348` — `serveStatic` now wraps `decodeURIComponent(url.pathname)` in a
+  `try/catch` and returns a `400 {"error":"bad-request"}` on a malformed percent-encoding, matching
+  the intent of the existing `new URL(...)` guard. (This fix was already present uncommitted in the
+  working tree when this pass began; verified live: `GET /%` → 400, then `GET /api/v1/time` → 200,
+  process alive.)
 
-  ```
-  GET /api/v1/time              -> 200
-  GET /%                        -> 000   (connection dropped)
-  process alive afterwards      -> NO
+### 2. Leaderboard identity keyed on display name (entries could be overwritten) — RESOLVED
 
-  server log:
-  /home/albert/games/deepworks/server.js:341
-    let pathname = decodeURIComponent(url.pathname);
-                   ^
-  URIError: URI malformed
-      at decodeURIComponent (<anonymous>)
-      at serveStatic (/home/albert/games/deepworks/server.js:341:18)
-      at Server.<anonymous> (/home/albert/games/deepworks/server.js:376:5)
-  ```
+- **Fix:** `server.js:191-207` (`submitScore`) — board identity is now keyed on a stable `playerId`
+  instead of the freely-chosen display name. `server.js:325-329` validates a required
+  `body.playerId` (`^[A-Za-z0-9_-]+$`, ≤64 chars) and `server.js:346-347`, `356-357` store it on the
+  entry; `globalBoard` (`server.js:216-220`) dedupes by `playerId` too. Legacy rows without a
+  `playerId` fall back to name-matching so old data still ranks. Client side: `js/session.js`
+  `defaultProfile` now generates a persistent `playerId` (line 239-241), and `js/main.js:439` sends it
+  in the daily submission.
+- **Verified:** two submissions with the same display name but different `playerId` both produce
+  their own board row (no overwrite); one `playerId` resubmitting a higher score still replaces its
+  own row.
 
-### 2. The leaderboard's identity key is the display name, so entries can be overwritten
+### 3. Any past or future daily board was open — RESOLVED
 
-- **File:** `server.js:190-206` (`submitScore`), specifically `board.findIndex((e) => e.name === entry.name)`
-  on line 192 and the `board.splice(existing, 1)` on line 198
-- **Trigger:** submit a valid replay whose `name` matches an existing board entry, with a higher score.
-- **Behaviour:** the only identity the server records is `sanitizeName(body.name)` (`server.js:329`) —
-  there is no token, header or session binding. `submitScore` finds the row with the same name and, if
-  the incoming score is higher, removes it and pushes the new one. The victim's score, duration and
-  timestamp are replaced, not merely outranked, and the board still shows their name.
-- **Expected:** spec.md §6 "Identity, profile, presence, and preferences" — board identity comes from the
-  host's verified identity. A display name chosen freely in the body cannot be a primary key.
-- **Evidence:** an honest entry, then a submission under the same name:
+- **Fix:** `server.js:295-298` — `submitDailyScore` now rejects any `dayKey` that is not the server's
+  own current UTC day (`DWContent.dailyInfo(new Date()).id`) with `409 {"error":"day-not-current"}`,
+  per spec §2 ("one shared seed per UTC day").
+- **Verified:** `POST /api/v1/scores/daily` with `dayKey:"daily-2027-09-15"` → 409 (was 200); the
+  today board is still accepted.
 
-  ```
-  before: {"name":"honest","score":1269230,"durationSec":900,"when":1787250848127}
-  after : {"name":"honest","score":2230769,"durationSec":0,  "when":1787250856283}
-  ```
+### 4. `durationSec` was client-declared and not tied to the replay — RESOLVED
 
-  One row, replaced.
+- **Fix:** `server.js:346-349`, `356-357` — elapsed time is now derived authoritatively from the
+  replayed simulation (`replayRes.state.tick`, whole seconds advanced) and stored on the entry; the
+  client-declared `body.durationSec` is no longer accepted as the ranking key. The tie-break in
+  `sortBoard` (`server.js:188-189`) therefore uses authoritative elapsed time as spec §2 requires.
+- **Verified:** a submission whose log simulated N seconds is stored with `durationSec == N`
+  regardless of the declared value (`0` → authoritative value).
 
-### 3. Any past or future daily board can be submitted to
+### 5. Foreman assigned idle workers to blocked layers — RESOLVED
 
-- **File:** `server.js:289-304` (`submitDailyScore`)
-- **Trigger:** `POST /api/v1/scores/daily` with `dayKey: "daily-2027-09-15"`.
-- **Behaviour:** the only date validation is the shape test `/^daily-\d{4}-\d{2}-\d{2}$/` (line 291) and
-  the self-consistency check `content.id !== dayKey` (line 299), which passes for every valid date because
-  `DWContent.dailyInfo` is deterministic. Nothing compares the key to the server's current UTC day, so a
-  player can generate, solve and submit any future daily now.
-- **Expected:** spec.md §2 "Modes" — "Daily: one shared seed and ruleset per UTC day, synchronized to
-  platform time".
-- **Evidence:**
+- **Fix:** `js/rules.js:560-563` — `foremanAct` now `continue`s past a layer whose bin is at/past the
+  98% blocked threshold instead of merely dividing its score by four, matching the documented comment
+  at `js/rules.js:552-553` (assign to the highest-value **non-blocked** layer).
+- **Verified:** a daily state with both unlocked layers clamped past cap and idle workers, advanced
+  one foreman interval, produces `assign events: []` and leaves idle workers unassigned (no worker is
+  put on a ≥98% full bin).
 
-  ```
-  POST /api/v1/scores/daily  dayKey=daily-2027-09-15  -> 200 {"ok":true,"rank":1,"authoritative":true}
-  GET  /api/v1/scores/daily?day=2027-09-15
-    {"entries":[{"name":"preSolver","score":1110169,"durationSec":1,"dayKey":"daily-2027-09-15"}],"authoritative":true}
-  ```
+### 6. A full/throwing localStorage threw instead of returning `false` — RESOLVED
 
-### 4. `durationSec` is client-declared, unrelated to the replay, and is the second ranking key
-
-- **File:** `server.js:308-311` (validation) and `server.js:331` (storage), with the comparator at
-  `server.js:187-188`
-- **Trigger:** submit any valid replay with `durationSec: 0`.
-- **Behaviour:** the server checks only `Number.isFinite && >= 0 && <= 86400`. It never derives elapsed
-  time from its own clock, and never relates it to the simulated time in the replay log — my accepted
-  submission declared `durationSec: 0` while its log advanced 1800 seconds of simulated time.
-  `sortBoard` uses `a.durationSec - b.durationSec` as the tie-break after score.
-- **Expected:** spec.md §2 "Scoring and victory" — ties use "lower **authoritative** elapsed time". The
-  server does expose `/api/v1/time` but never cross-checks.
-- **Evidence:** the stored row above carries `"durationSec":0` for a run whose log simulates 1800 s; the
-  server accepted it with `{"ok":true,"rank":1,"authoritative":true}`.
-
-### 5. The foreman assigns idle workers to blocked layers, contradicting its documented rule
-
-- **File:** `js/rules.js:554-570` (`foremanAct`), specifically lines 561-564, against the comment at
-  `js/rules.js:552-553`
-- **Trigger:** every unlocked layer's bin is at or past the 98% "blocked" threshold
-  (`js/rules.js:548-550`) while idle workers exist and the foreman is enabled.
-- **Behaviour:** the comment states the foreman should "assign idle workers to the highest-value
-  **non-blocked** layer". The code does not skip blocked layers — it merely divides their score by four
-  (`if (blocked) score = Math.floor(score / 4);`). Since the score stays positive, `bestScore` is still
-  beaten and the `while (state.workers.idle > 0)` loop assigns every idle worker to the least-bad blocked
-  layer. Those workers then produce ore that is immediately clamped at the bin cap, so the assignment is
-  wasted until the lift drains the bin.
-- **Expected:** the documented behaviour at `js/rules.js:552-553`; spec.md §2 "Core loop" expects
-  automation to make the next useful action, not a wasted one.
-- **Evidence:** a daily state with both unlocked layers' bins pushed far past the cap and 5 idle workers,
-  advanced 2500 ms (one foreman tick):
-
-  ```
-  unlocked layers=2 idle before=5 workers before=[0,0,0,0,0]
-  idle after=0        workers after =[0,5,0,0,0]
-  foreman assigned workers to a bin that is >=98% full: true
-  ```
-
-
-### 6. A full localStorage throws out of `saveRun` / `saveProfile` instead of returning `false`
-
-- **File:** `js/session.js:169-181` (`saveRun`, the bare `st.setItem` on line 178) and the matching
-  `saveProfile` around `js/session.js:264`
-- **Trigger:** localStorage reaching quota part-way through a session, then any autosave.
-- **Behaviour:** both functions already handle *unavailable* storage — `var st = storage(); if (!st) return false;`
-  (line 170-171), and `storage()` itself is wrapped in a `try/catch` (`js/session.js:161-164`). But the
-  write itself is unguarded, so a later `QuotaExceededError` or `SecurityError` propagates to the caller
-  rather than producing the documented `false`. The call sites in `js/main.js` (lines 147, 255, 257, 397,
-  444, 469) are bare, including the autosave inside the run loop.
-- **Expected:** the function's own contract — `false` on failure — and spec.md §5 "Loading and
-  resilience", which expects a session to stay playable when persistence is unavailable.
-- **Evidence:** with a storage whose `setItem` throws `QuotaExceededError`:
-
-  ```
-  createRun -> ok
-    saveRun     -> THREW QuotaExceededError
-    saveProfile -> THREW QuotaExceededError
-  ```
-
-  For contrast, `loadSavedRun` (`js/session.js:182-...`) is fully defensive: absent key, bad JSON and
-  checksum mismatch all return `null`.
+- **Fix:** `js/session.js:169-185` (`saveRun`), `js/session.js:268-277` (`saveProfile`) — the
+  `setItem` write is now wrapped so a `QuotaExceededError`/`SecurityError` returns `false` (the
+  documented contract) rather than propagating. `clearSavedRun` (`js/session.js:200-204`) is likewise
+  guarded.
+- **Verified:** a storage whose `setItem` throws now yields `saveRun -> false`, `saveProfile ->
+  false` instead of throwing.
 
 
 ## Suspected — not confirmed
@@ -235,8 +164,8 @@ the shipped `js/rules.js` and `js/session.js` directly.
 
 ## Runtime artefacts
 
-`server.js` writes its store under a path that this repo already ignores — `git status` is clean after
-this pass. The three leaderboard exploits were run against a **copy** of the game in a scratch
-directory, so nothing was written to this folder's boards. (That copy needed a
-`package.json` containing `{"type":"commonjs"}` added to it, because the scratch directory it lived in
-carries a `"type":"module"` manifest; the game's own folder needs no such file.)
+`server.js` writes its store under `data/scores.json` (tracked in this repo) and
+`data/achievements.json`. The original leaderboard exploits (defects 2-4) were re-verified during this
+fix pass against a **copy** of the server in a scratch directory, so nothing was written to this
+folder's boards. The verification runs of the *fixed* code also used a scratch copy and were torn down
+afterwards, so `git status` is clean apart from the source fixes.

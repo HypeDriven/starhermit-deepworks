@@ -169,6 +169,7 @@
   function saveRun(run) {
     var st = storage();
     if (!st) return false;
+    try {
     var payload = JSON.stringify({
       v: 1, runId: run.id, mode: run.mode, contentId: run.contentId,
       contentVersion: run.contentVersion, seed: run.seed,
@@ -178,6 +179,10 @@
     st.setItem(RUN_SAVE_KEY, JSON.stringify({ sum: checksum(payload), payload: payload }));
     run.lastSavedAt = Date.now();
     return true;
+    } catch (e) {
+      // quota/security errors: persistence unavailable, not a thrown crash
+      return false;
+    }
   }
   function loadSavedRun() {
     var st = storage();
@@ -194,7 +199,8 @@
   }
   function clearSavedRun() {
     var st = storage();
-    if (st) st.removeItem(RUN_SAVE_KEY);
+    if (!st) return;
+    try { st.removeItem(RUN_SAVE_KEY); } catch (e) { /* persistence unavailable */ }
   }
 
   // Resume a saved endless run with capped away simulation.
@@ -230,6 +236,8 @@
   function defaultProfile() {
     return {
       v: 1,
+      playerId: 'p' + String(Math.floor(Math.random() * 0xffffffff)).padStart(10, '0') +
+        String(Date.now() % 1000).padStart(3, '0'),
       displayName: 'Guest Prospector',
       journey: {},             // stageId -> {stars, bestTick, bestScore}
       lessons: {},             // lessonId -> true
@@ -260,9 +268,14 @@
   function saveProfile(profile) {
     var st = storage();
     if (!st) return false;
-    var payload = JSON.stringify(profile);
-    st.setItem(PROFILE_KEY, JSON.stringify({ sum: checksum(payload), payload: payload }));
-    return true;
+    try {
+      var payload = JSON.stringify(profile);
+      st.setItem(PROFILE_KEY, JSON.stringify({ sum: checksum(payload), payload: payload }));
+      return true;
+    } catch (e) {
+      // quota/security errors: persistence unavailable, not a thrown crash
+      return false;
+    }
   }
 
   // Journey stars: 3 = at/under par, 2 = under 1.5x par, 1 = completion.

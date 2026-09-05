@@ -558,9 +558,10 @@
       for (var i = 0; i < state.layers.length; i++) {
         var L = state.layers[i];
         if (!L.unlocked || L.workers >= state.ruleset.workerCapPerLayer) continue;
-        var blocked = isBlocked(state, i);
+        // skip bins at/past the blocked threshold: a worker there would only
+        // produce ore that is instantly clamped at the cap (see comment above).
+        if (isBlocked(state, i)) continue;
         var score = state.ruleset.layerRich[i] * shaftMult(state, i) * state.ruleset.layerValue[i];
-        if (blocked) score = Math.floor(score / 4);
         if (score > bestScore) { bestScore = score; best = i; }
       }
       if (best < 0) break;

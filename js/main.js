@@ -436,6 +436,7 @@
       P.submitScore('daily', {
         dayKey: app.content.id, contentVersion: app.content.version, seed: app.content.seed,
         name: p.displayName, scoreTotal: total, durationSec: st.tick,
+        playerId: p.playerId,
         clientHash: run.result.finalHash, log: env.log
       }).then(function (res) {
         if (res && res.ok && res.authoritative) boardResult = 'Board rank #' + res.rank + ' (validated).';
