@@ -899,6 +899,7 @@
       camera.updateProjectionMatrix();
       renderer.setPixelRatio(Math.min(root.devicePixelRatio || 1, CONFIG.pixelRatioCap[quality]));
       renderer.setSize(w, h, false); // CSS keeps the canvas filling the container
+      if (paused) renderer.render(scene, camera); // repaint the frozen frame
     }
 
     // ------------------------------------------------------------ picking ---

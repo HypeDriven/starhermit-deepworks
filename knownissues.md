@@ -169,3 +169,49 @@ each still reproduced in the original code and is now fixed.
 fix pass against a **copy** of the server in a scratch directory, so nothing was written to this
 folder's boards. The verification runs of the *fixed* code also used a scratch copy and were torn down
 afterwards, so `git status` is clean apart from the source fixes.
+
+---
+
+## Review pass 2026-09-07 (Kimi)
+
+Follow-up review. All suites re-run green after the fixes below:
+`node tests/run.js` 5210/5210, `node tests/balance.js` (journey fails: 0),
+`npm run test:e2e` (desktop + mobile, no page errors), plus a new targeted
+browser suite `tests/review-fixes.mjs` covering each fix.
+
+### Fixed
+
+1. **Offline daily board stored `undefined` scores** — `js/platform.js` `submitScore`
+   offline branch read `entry.score` but the client sends the ranked payload shape
+   (`scoreTotal`), so local casual boards showed `NaN` and sorted wrong. Now accepts
+   either field and uses the submitted display name.
+2. **Escape / gamepad Start on the pause screen dumped to the title with the run
+   left paused in limbo** — `UI.back()` coerces `play → title`. `js/main.js` now
+   resumes the run when Escape/Start is pressed on the settings screen while a
+   run is paused.
+3. **Countdown could unpause the sim behind the pause menu** — pausing during the
+   1.8 s countdown, then letting the countdown finish, cleared `app.paused` while
+   the settings screen was still open. The countdown end now only unpauses when
+   the play screen is actually showing; Escape/Start during the countdown now opens
+   the pause menu instead of being a no-op.
+4. **"Timing assistance" accessibility setting was a no-op** — the toggle existed
+   but nothing read it. It now doubles the flare claim window in casual modes;
+   the ranked daily is excluded so server-side replay validation stays
+   bit-identical. Toggle label updated accordingly.
+5. **Backgrounding the tab froze the game with no visible paused state** — the
+   visibility handler paused silently. It now opens the pause panel so the frozen
+   state is obvious on return (and still autosaves practice runs first).
+6. **Resizing while paused left a stale/blank canvas** — `js/render.js` `resize()`
+   now repaints the frozen frame when paused.
+7. Dead code removed in `js/session.js` `createRun`; missing `LICENSE.md`
+   (PolyForm Noncommercial 1.0.0) added at repo root.
+
+### Still open (unchanged from previous pass)
+
+- No per-player submission limit on boards (per-IP rate limit only).
+- `foremanAct` cooldown can go negative if a sim step ever exceeds the foreman
+  interval (unreachable with current constants).
+- No upper bound on a single `advance` log entry (bounded in practice by the
+  run's own terminal condition).
+- Localization guidance (agents/localization.md: 9 locales) is not implemented;
+  consistent with the rest of the game fleet, tracked as fleet-level debt.

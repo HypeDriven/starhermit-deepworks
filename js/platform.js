@@ -129,8 +129,10 @@
     try {
       var boards = JSON.parse(localStorage.getItem(LOCAL_BOARD_KEY) || '{}');
       boards[board] = boards[board] || [];
+      // callers send the ranked payload shape ({scoreTotal}); accept either
+      var score = (typeof entry.score === 'number') ? entry.score : entry.scoreTotal;
       boards[board].push({
-        name: state.profile.displayName, score: entry.score,
+        name: entry.name || state.profile.displayName, score: score,
         durationSec: entry.durationSec, when: Date.now(), casual: true
       });
       boards[board].sort(function (a, b) { return b.score - a.score; });

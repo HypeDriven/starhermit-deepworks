@@ -156,6 +156,11 @@
     else { app.lesson = null; app.lessonStepIdx = 0; }
 
     app.run = S.createRun(content, app.mode, { buildState: C.buildState });
+    // Timing assistance (accessibility): longer flare claim windows. Casual
+    // shifts only — the ranked daily must replay bit-identically server-side.
+    if (app.settings.timingAssist && app.mode !== 'daily') {
+      app.run.state.ruleset.flareDurationSec *= 2;
+    }
     A.setVariantSeed(content.seed);
     app.selectedLayer = null;
     app.paused = false;
@@ -235,7 +240,8 @@
         return;
       }
       app.countdownEnd = 0;
-      app.paused = false;
+      // stay paused if the player opened the pause menu during the countdown
+      app.paused = UI.currentScreen() !== 'play';
       UI.showCountdown(null);
     }
 
@@ -524,8 +530,10 @@
       var k = ev.key;
       if (k === 'Escape') {
         ev.preventDefault();
-        if (UI.currentScreen() === 'play') app.paused ? resumeGame() : pauseGame();
-        else if (UI.currentScreen() !== 'title') UI.back();
+        var scr = UI.currentScreen();
+        if (scr === 'play') (app.paused && !app.countdownEnd) ? resumeGame() : pauseGame();
+        else if (scr === 'settings' && app.run && app.paused) resumeGame();
+        else if (scr !== 'title') UI.back();
         return;
       }
       if (UI.currentScreen() !== 'play' || !app.run) return;
@@ -586,7 +594,11 @@
       padState[b] = down;
       return down && !was;
     }
-    if (pressed(map.pause)) { if (UI.currentScreen() === 'play') app.paused ? resumeGame() : pauseGame(); }
+    if (pressed(map.pause)) {
+      var scr = UI.currentScreen();
+      if (scr === 'play') (app.paused && !app.countdownEnd) ? resumeGame() : pauseGame();
+      else if (scr === 'settings' && app.run && app.paused) resumeGame();
+    }
     if (UI.currentScreen() !== 'play' || !app.run) return;
     if (pressed(map.up)) onLayerPicked(Math.max(0, (app.selectedLayer === null ? 0 : app.selectedLayer) - 1));
     if (pressed(map.down)) onLayerPicked(Math.min(app.run.state.layers.length - 1, (app.selectedLayer === null ? -1 : app.selectedLayer) + 1));
@@ -620,10 +632,10 @@
       A.handleVisibility(hidden);
       if (hidden) {
         if (app.run && !app.run.closed && !app.paused) {
-          // backgrounding pauses solo simulation; save a safe snapshot
-          app.paused = true;
+          // backgrounding pauses solo simulation; save a safe snapshot and
+          // surface the pause panel so the frozen state is obvious on return
           if (app.mode === 'practice') S.saveRun(app.run);
-          UI.showPlay();
+          pauseGame();
         }
       } else {
         app.lastFrame = performance.now();

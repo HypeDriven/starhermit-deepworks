@@ -542,7 +542,7 @@
     toggle(gx, 'High contrast', 'highContrast');
     toggle(gx, 'Larger text', 'largeText');
     select(gx, 'Color palette', 'palette', [['default', 'Default'], ['deuter', 'Deuteranopia-safe'], ['protan', 'Protanopia-safe'], ['tritan', 'Tritanopia-safe']]);
-    toggle(gx, 'Timing assistance (longer flares)', 'timingAssist');
+    toggle(gx, 'Timing assistance (longer flares — not in the ranked daily)', 'timingAssist');
     var replayRow = el('div', 'set-row');
     replayRow.appendChild(el('label', null, 'Tutorial'));
     replayRow.appendChild(btn('Replay lessons', 'small ghost', function () { openSetup('learn'); }));

@@ -31,8 +31,7 @@
   // content: a DWContent entry. mode: 'learn'|'journey'|'daily'|'practice'|'challenge'
   function createRun(content, mode, opts) {
     opts = opts || {};
-    var state = (opts.contentModule || null) ? null : null;
-    state = (opts.buildState || defaultBuild)(content);
+    var state = (opts.buildState || defaultBuild)(content);
     var run = {
       id: newRunId(content.seed),
       mode: mode,
