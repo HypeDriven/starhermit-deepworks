@@ -129,6 +129,13 @@ p { max-width: 70ch; }
 .game-logo span { color: var(--text); }
 .tagline { color: var(--text-dim); margin-top: -0.4em; }
 .title-panel { text-align: center; max-width: 480px; }
+/* generated key art / illustrations (assets/*.webp); decorative, hidden on load error */
+.title-art, .result-art, .modal-art {
+  display: block; width: 100%; object-fit: cover; border-radius: 10px;
+  border: 1px solid var(--line); margin: 0 0 0.7em; background: #000;
+}
+.title-art { max-height: 190px; }
+.result-art, .modal-art { max-height: 150px; }
 .title-buttons { display: flex; flex-direction: column; gap: 0.6em; margin: 1.2em 0 0.8em; }
 .title-links { display: flex; justify-content: center; gap: 1em; flex-wrap: wrap; }
 
@@ -303,6 +310,7 @@ input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accent);
 
 /* landscape mobile: narrow status rail, keep 44px targets */
 @media (orientation: landscape) and (max-height: 500px) {
+  .title-art, .result-art, .modal-art { display: none; }
   .rail { top: 56px; bottom: calc(8px + var(--sab)); width: 220px; }
   #hud-top { padding-top: calc(4px + var(--sat)); }
   .hud-cell { padding: 0.25em 0.6em; }

@@ -26,7 +26,7 @@ const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml',
-  '.png': 'image/png', '.ico': 'image/x-icon', '.wav': 'audio/wav',
+  '.png': 'image/png', '.webp': 'image/webp', '.ico': 'image/x-icon', '.wav': 'audio/wav',
   '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg', '.opus': 'audio/ogg',
   '.glb': 'model/gltf-binary', '.woff2': 'font/woff2', '.ts': 'text/plain; charset=utf-8',
 };
@@ -70,23 +70,28 @@ async function runPass(browser, tag, viewport, hasTouch) {
   const credits = () => page.evaluate(() => document.getElementById('res-credits').textContent);
   const income = () => page.evaluate(() => document.getElementById('res-income').textContent);
   // The HUD tray/rail buttons are rebuilt whenever the economy signature
-  // changes (constantly, while earning), so locator taps see detached nodes.
-  // Tap by coordinates instead — a real touch on the visible on-screen button.
-  const tapLoc = async (loc) => {
+  // changes (constantly, while earning), so locator round-trips race node
+  // replacement: waitFor resolves a live button, then boundingBox() lands on
+  // a stale detached one and returns null. Read the rect atomically in-page
+  // instead, then tap those coordinates — a real touch on the visible button.
+  const tapText = async (containerSel, text) => {
     for (let attempt = 0; attempt < 20; attempt++) {
-      try {
-        await loc.waitFor({ state: 'visible', timeout: 8000 });
-        const box = await loc.boundingBox();
-        if (box) {
-          await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
-          return;
-        }
-      } catch (e) {
-        if (attempt === 19) throw e;
+      const box = await page.evaluate(([cs, t]) => {
+        const btns = Array.from(document.querySelectorAll(cs + ' .btn'));
+        const b = btns.find((x) => x.textContent.includes(t) && !x.disabled)
+                 || btns.find((x) => x.textContent.includes(t));
+        if (!b) return null;
+        const r = b.getBoundingClientRect();
+        return (r.width > 0 && r.height > 0)
+          ? { x: r.x, y: r.y, width: r.width, height: r.height } : null;
+      }, [containerSel, text]);
+      if (box) {
+        await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+        return;
       }
-      await page.waitForTimeout(150); // tray rebuilt mid-tap; re-resolve and retry
+      await page.waitForTimeout(150); // tray rebuilt mid-tap; re-query and retry
     }
-    throw new Error('no bounding box for tap target');
+    throw new Error(`no bounding box for tap target ${containerSel} "${text}"`);
   };
 
   try {
@@ -133,7 +138,7 @@ async function runPass(browser, tag, viewport, hasTouch) {
       const before = await page.evaluate(() => document.getElementById('res-workers').textContent);
       if (!before.startsWith('0/')) throw new Error(`unexpected initial workers "${before}"`);
       if (hasTouch) {
-        await tapLoc(page.locator('#hud-bottom .btn', { hasText: 'Hire' }));
+        await tapText('#hud-bottom', 'Hire');
       } else {
         await page.keyboard.press('h');
       }
@@ -153,7 +158,7 @@ async function runPass(browser, tag, viewport, hasTouch) {
         // labels track the 3D projection every frame, so they never settle "stable"
         await page.locator('.layer-label').first().tap({ force: true });
         await page.waitForTimeout(150);
-        await tapLoc(page.locator('#hud-bottom .btn', { hasText: 'Assign' }));
+        await tapText('#hud-bottom', 'Assign');
       } else {
         await page.keyboard.press('ArrowDown');
         await page.waitForTimeout(150);
@@ -175,8 +180,12 @@ async function runPass(browser, tag, viewport, hasTouch) {
       if (hasTouch) {
         // lift upgrades live in the Foreman's Panel drawer on small screens
         await page.click('#rail-toggle-right');
-        const cap = page.locator('#right-rail-body .btn', { hasText: 'Lift capacity' });
-        if (await cap.isEnabled()) await tapLoc(cap);
+        const capEnabled = await page.evaluate(() => {
+          const b = Array.from(document.querySelectorAll('#right-rail-body .btn'))
+            .find((x) => x.textContent.includes('Lift capacity'));
+          return !!b && !b.disabled;
+        });
+        if (capEnabled) await tapText('#right-rail-body', 'Lift capacity');
         await page.click('#rail-toggle-right');
       } else {
         for (const k of ['q', 'w', 'e', 'd']) await page.keyboard.press(k);

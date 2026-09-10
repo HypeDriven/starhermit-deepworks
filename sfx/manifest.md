@@ -19,3 +19,9 @@ Generated with MOSS-SoundEffect v2.0, 48 kHz mono Opus (96 kbps VBR, loudness-no
 | shift-victory.opus | terminal_win | A large brass mine bell struck three times in celebration, ringing out with long cavernous reverb |
 | shift-defeat.opus | terminal_lose | Old mine timbers creaking and groaning as they settle, ending in a low weary thud |
 | undo-swipe.opus | undo | A quick reverse paper-like swipe, a soft fast whoosh sliding from high to low |
+| bin-blocked.opus | bin_blocked | A heavy load of loose rock and gravel jamming and grinding to a halt inside a metal chute, ending in a dull hollow clunk, in an echoing mine tunnel |
+| flare-fizzle.opus | flare_expired | A burning gas flame sputtering and dying out with a soft descending hiss and a final faint pop, close and dry |
+| lesson-chime.opus | lesson_step | Two bright ascending notes struck on a small metal xylophone bar, clean and short with a gentle ring |
+| shift-start.opus | shift_start | A steam whistle giving one short firm blast at a mine head at dawn, mid-pitched with a brief outdoor echo |
+| achievement-star.opus | achievement | A single struck crystal glass chime blooming into a shimmering sparkle tail, bright and delicate |
+| away-return.opus | away_return | A wooden hut door creaking open and a small brass bell over the door jingling once, warm and close |

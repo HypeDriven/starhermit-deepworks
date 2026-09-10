@@ -570,6 +570,12 @@
     var panel = $('results-panel');
     panel.innerHTML = '';
     var won = data.won && data.reason !== 'player-ended';
+    // outcome illustration (decorative; hidden if the asset fails to load)
+    var art = el('img', 'result-art');
+    art.alt = '';
+    art.src = won ? 'assets/shift-complete.webp' : 'assets/shift-over.webp';
+    art.addEventListener('error', function () { art.style.display = 'none'; });
+    panel.appendChild(art);
     var head = el('h2', won ? 'result-head-win' : 'result-head-lose',
       won ? 'Objective complete' : (data.reason === 'time-up' ? 'Time is up' : data.reason === 'moves-exhausted' ? 'Out of moves' : 'Shift ended'));
     panel.appendChild(head);

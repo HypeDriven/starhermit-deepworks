@@ -110,7 +110,13 @@
     foreman:       { fn: function () { tone('effects', 392, 0.12, 'triangle', 0.14); tone('effects', 587, 0.16, 'triangle', 0.12); }, caption: 'Foreman engaged' },
     terminal_win:  { fn: function () { [392, 523, 659, 784].forEach(function (f, i) { setTimeout(function () { tone('effects', f, 0.3, 'triangle', 0.16); }, i * 120); }); }, caption: 'Objective complete' },
     terminal_lose: { fn: function () { tone('effects', 300, 0.5, 'sine', 0.15, 0.5); }, caption: 'Run ended' },
-    undo:          { fn: function () { tone('effects', 500, 0.09, 'sine', 0.1, 0.75); }, caption: 'Undone' }
+    undo:          { fn: function () { tone('effects', 500, 0.09, 'sine', 0.1, 0.75); }, caption: 'Undone' },
+    bin_blocked:   { fn: function () { noiseHit('effects', 0.22, 0.22, 500); tone('effects', 140, 0.35, 'square', 0.09, 0.6); }, caption: 'Bin full — transport is the bottleneck' },
+    flare_expired: { fn: function () { tone('effects', 720, 0.35, 'sine', 0.07, 0.45); }, caption: 'Seam flare faded' },
+    lesson_step:   { fn: function () { tone('effects', 660, 0.1, 'triangle', 0.12); setTimeout(function () { tone('effects', 990, 0.16, 'triangle', 0.12); }, 90); }, caption: 'Lesson step complete' },
+    shift_start:   { fn: function () { tone('effects', 880, 0.28, 'triangle', 0.12, 1.08); }, caption: 'Shift started' },
+    achievement:   { fn: function () { [784, 988, 1175, 1568].forEach(function (f, i) { setTimeout(function () { tone('effects', f, 0.22, 'triangle', 0.1); }, i * 70); }); }, caption: 'Achievement unlocked' },
+    away_return:   { fn: function () { tone('effects', 330, 0.18, 'triangle', 0.1); setTimeout(function () { tone('effects', 495, 0.22, 'triangle', 0.1); }, 140); }, caption: 'Welcome back' }
   };
 
   // ------------------------------------------------------- sample one-shots ---
@@ -132,7 +138,13 @@
     foreman: 'foreman-whistle',
     terminal_win: 'shift-victory',
     terminal_lose: 'shift-defeat',
-    undo: 'undo-swipe'
+    undo: 'undo-swipe',
+    bin_blocked: 'bin-blocked',
+    flare_expired: 'flare-fizzle',
+    lesson_step: 'lesson-chime',
+    shift_start: 'shift-start',
+    achievement: 'achievement-star',
+    away_return: 'away-return'
   };
   var sampleCache = {};   // name -> AudioBuffer
   var samplePending = {}; // name -> true while fetch/decode is in flight

@@ -88,5 +88,41 @@
     "seconds": 1,
     "prompt": "A quick reverse paper-like swipe, a soft fast whoosh sliding from high to low",
     "event": "undo"
+  },
+  {
+    "name": "bin-blocked",
+    "seconds": 2,
+    "prompt": "A heavy load of loose rock and gravel jamming and grinding to a halt inside a metal chute, ending in a dull hollow clunk, in an echoing mine tunnel",
+    "event": "bin_blocked"
+  },
+  {
+    "name": "flare-fizzle",
+    "seconds": 2,
+    "prompt": "A burning gas flame sputtering and dying out with a soft descending hiss and a final faint pop, close and dry",
+    "event": "flare_expired"
+  },
+  {
+    "name": "lesson-chime",
+    "seconds": 1,
+    "prompt": "Two bright ascending notes struck on a small metal xylophone bar, clean and short with a gentle ring",
+    "event": "lesson_step"
+  },
+  {
+    "name": "shift-start",
+    "seconds": 2,
+    "prompt": "A steam whistle giving one short firm blast at a mine head at dawn, mid-pitched with a brief outdoor echo",
+    "event": "shift_start"
+  },
+  {
+    "name": "achievement-star",
+    "seconds": 2,
+    "prompt": "A single struck crystal glass chime blooming into a shimmering sparkle tail, bright and delicate",
+    "event": "achievement"
+  },
+  {
+    "name": "away-return",
+    "seconds": 2,
+    "prompt": "A wooden hut door creaking open and a small brass bell over the door jingling once, warm and close",
+    "event": "away_return"
   }
 ]

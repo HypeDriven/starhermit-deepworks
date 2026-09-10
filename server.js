@@ -46,6 +46,8 @@ const MIME = {
   '.css': 'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
   '.png': 'image/png',
+  '.webp': 'image/webp',
+  '.svg': 'image/svg+xml',
   '.opus': 'audio/ogg',
   '.txt': 'text/plain; charset=utf-8'
 };
@@ -364,6 +366,10 @@ function serveStatic(req, res, url) {
     return sendError(res, 400, 'bad-request');
   }
   if (pathname === '/') pathname = '/index.html';
+  // dev-only trees and dotfiles are never part of the distribution
+  if (/^\/(tests|tools|node_modules|data)(\/|$)/.test(pathname) || /(^|\/)\.[^/]/.test(pathname)) {
+    return sendError(res, 404, 'not-found');
+  }
   const filePath = path.resolve(ROOT, '.' + pathname);
   if (filePath !== ROOT && !filePath.startsWith(ROOT + path.sep)) {
     return sendError(res, 403, 'forbidden');

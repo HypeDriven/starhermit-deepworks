@@ -29,7 +29,9 @@
     coinSoundAccum: 0,
     lastCoinBucket: 0,
     webgl: true,
-    awayInfo: null
+    awayInfo: null,
+    blockedMask: 0,        // bit per layer currently at the blocked threshold
+    blockedSoundAt: 0      // last bin_blocked cue time (rate-limited)
   };
 
   var DEFAULT_SETTINGS = {
@@ -95,6 +97,10 @@
     var board = document.createElement('div');
     board.id = 'fallback-board';
     board.style.cssText = 'position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;gap:6px;padding:80px 12px;';
+    // key art stands in for the 3D mine (decorative; buttons stay on top)
+    host.style.backgroundImage = 'url(assets/key-art.webp)';
+    host.style.backgroundSize = 'cover';
+    host.style.backgroundPosition = 'center';
     host.appendChild(board);
   }
   function updateFallbackBoard() {
@@ -165,6 +171,7 @@
     app.selectedLayer = null;
     app.paused = false;
     app.lastCoinBucket = 0;
+    app.blockedMask = 0;
 
     if (app.renderer) app.renderer.setTheme(C.themeById(content.theme || app.settings.theme));
     UI.closeModal();
@@ -243,6 +250,7 @@
       // stay paused if the player opened the pause menu during the countdown
       app.paused = UI.currentScreen() !== 'play';
       UI.showCountdown(null);
+      if (!app.paused) A.play('shift_start');
     }
 
     if (app.run && !app.paused && !app.run.closed) {
@@ -255,6 +263,7 @@
         UI.updateHUD(hudModel());
         updateFallbackBoard();
         updateAudioIntensity();
+        checkBottleneck(now);
       }
       if (app.saveAccum > 10000) {
         app.saveAccum = 0;
@@ -292,6 +301,25 @@
     }
   }
 
+  // Bottleneck cue: fires once when a layer's bin first reaches the blocked
+  // threshold (rules.isBlocked), rate-limited so a saturated mine stays quiet.
+  function checkBottleneck(now) {
+    var st = app.run.state;
+    var mask = 0;
+    for (var i = 0; i < st.layers.length; i++) {
+      if (st.layers[i].unlocked && R.isBlocked(st, i)) mask |= (1 << i);
+    }
+    var fresh = mask & ~app.blockedMask;
+    app.blockedMask = mask;
+    if (fresh && now - app.blockedSoundAt > 8000) {
+      app.blockedSoundAt = now;
+      var idx = 0;
+      while (!(fresh & (1 << idx))) idx++;
+      A.play('bin_blocked');
+      UI.announce('Layer ' + (idx + 1) + ' bin is full — transport is the bottleneck.', false);
+    }
+  }
+
   function updateAudioIntensity() {
     if (!app.run) { A.setIntensity(0); return; }
     var rate = R.totalExtractionRate(app.run.state);
@@ -307,7 +335,10 @@
           A.play('flare_started');
           UI.announce('Seam flare on Layer ' + (e.layer + 1), false);
           break;
-        case 'flare_expired': break;
+        case 'flare_expired':
+          A.play('flare_expired');
+          UI.announce('The flare on Layer ' + (e.layer + 1) + ' faded.', false);
+          break;
         case 'terminal':
           break; // handled via run.closed
       }
@@ -397,7 +428,7 @@
   function advanceLesson() {
     P.track('tutorial_step', { lesson: app.lesson.id, step: app.lessonStepIdx });
     app.lessonStepIdx++;
-    A.play('upgrade');
+    A.play('lesson_step');
     if (app.lessonStepIdx >= app.lesson.steps.length) {
       app.profile.lessons[app.lesson.id] = true;
       S.saveProfile(app.profile);
@@ -472,6 +503,7 @@
     achieved.push.apply(achieved, unlockAch('mechanic_mastery', C.LESSONS.every(function (l) { return p.lessons[l.id]; })));
     achieved.push.apply(achieved, unlockAch('streak_7', Object.keys(p.daily).length >= 7));
     achieved.push.apply(achieved, unlockAch('long_haul', p.stats.totalEarned >= 10000000));
+    if (achieved.length) setTimeout(function () { A.play('achievement'); }, 600);
 
     S.saveProfile(p);
     P.track('round_end', { mode: app.mode, content: app.content.id, won: won, score: run.result.score.total });
@@ -495,7 +527,7 @@
   }
   function checkAchievement(key, condition) {
     var names = unlockAch(key, condition);
-    if (names.length) { UI.toast('Achievement: ' + names[0], 'good'); S.saveProfile(app.profile); }
+    if (names.length) { A.play('achievement'); UI.toast('Achievement: ' + names[0], 'good'); S.saveProfile(app.profile); }
   }
 
   // ----------------------------------------------------------------- input ---
@@ -731,12 +763,17 @@
       UI.showPlay();
       if (resumed.away.seconds > 30) {
         var mins = Math.floor(resumed.away.seconds / 60);
+        A.play('away_return');
         UI.openModal(function (close) {
           var m = document.createElement('div');
           m.className = 'modal';
           m.innerHTML = '<h3>While you were away</h3>' +
             '<p>The crew kept digging for ' + (mins >= 60 ? Math.floor(mins / 60) + 'h ' + (mins % 60) + 'm' : mins + ' min') +
             (resumed.away.capped ? ' (capped)' : '') + ' and earned <b>' + R.formatCoins(resumed.away.earned) + '</b> credits.</p>';
+          var art = document.createElement('img');
+          art.className = 'modal-art'; art.alt = ''; art.src = 'assets/crew-at-night.webp';
+          art.addEventListener('error', function () { art.style.display = 'none'; });
+          m.insertBefore(art, m.firstChild);
           var b = document.createElement('button');
           b.className = 'btn primary'; b.textContent = 'Back to work';
           b.addEventListener('click', close);
