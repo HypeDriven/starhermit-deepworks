@@ -52,6 +52,28 @@
     app.profile.settings = app.settings;
     applySettings();
 
+    // Hosted: the account nickname replaces the guest name and the remote
+    // save wins over the local cache before anything renders.
+    if (P.state.hosted) {
+      P.fetchProfile().then(function () {
+        app.profile.displayName = P.state.profile.displayName;
+        S.saveProfile(app.profile);
+        UI.refreshIdentity && UI.refreshIdentity();
+      }).catch(function () {});
+      P.onSync(function () { UI.refreshIdentity && UI.refreshIdentity(); });
+      P.loadCloud().then(function (remoteRaw) {
+        var remote = remoteRaw ? S.loadProfileRaw(remoteRaw) : null;
+        if (remote) {
+          app.profile = remote;
+          app.settings = Object.assign({}, DEFAULT_SETTINGS, remote.settings || {});
+          app.profile.settings = app.settings;
+          S.saveProfile(app.profile); // local cache mirrors the remote doc
+          applySettings();
+        }
+        UI.refreshIdentity && UI.refreshIdentity();
+      }).catch(function () {});
+    }
+
     UI.init(handlers);
     UI.setBootProgress(0.2, 'Checking the cage…');
 

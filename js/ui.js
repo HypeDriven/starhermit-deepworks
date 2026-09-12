@@ -103,8 +103,14 @@
     var p = st.profile;
     var done = Object.keys(p.journey).length;
     $('journey-progress-label').textContent = done ? '(' + done + '/' + C.JOURNEY.length + ')' : '';
-    $('title-identity').textContent = (st.platform.hosted ? 'Signed in as ' : 'Playing as ') +
-      p.displayName + (st.platform.hosted ? '' : ' (guest — progress stays on this device)');
+    if (st.platform.hosted) {
+      var syncTxt = st.platform.sync === 'synced' ? ' · progress synced'
+        : st.platform.sync === 'saving' ? ' · saving…'
+        : ' · cloud sync pending';
+      $('title-identity').textContent = 'Signed in as ' + p.displayName + syncTxt;
+    } else {
+      $('title-identity').textContent = 'Playing as ' + p.displayName + ' (guest — progress stays on this device)';
+    }
     var banner = $('resume-banner');
     var saved = st.savedRun;
     if (saved) {
@@ -421,6 +427,7 @@
     var nameInput = el('input');
     nameInput.type = 'text'; nameInput.value = p.displayName; nameInput.maxLength = 24;
     nameInput.setAttribute('aria-label', 'Display name');
+    if (st.platform.hosted) nameInput.disabled = true; // account nickname; offline fallback stays editable
     nameRow.appendChild(nameInput);
     nameRow.appendChild(btn('Save', 'small', function () {
       H.setDisplayName(nameInput.value.trim() || 'Guest Prospector');
@@ -972,6 +979,7 @@
   root.DWUI = {
     init: init,
     show: show,
+    refreshIdentity: function () { show(current); },
     back: back,
     currentScreen: currentScreen,
     openSetup: openSetup,

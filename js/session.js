@@ -254,22 +254,32 @@
     if (!st) return defaultProfile();
     var raw = st.getItem(PROFILE_KEY);
     if (!raw) return defaultProfile();
+    return parseProfileWrapped(raw) || defaultProfile();
+  }
+  // Validates a wrapped profile document (local cache or cloud slot); null on
+  // bad shape or checksum. Remote-preferred cloud loads go through here.
+  function parseProfileWrapped(raw) {
+    var st = storage();
+    if (!st) return null;
     try {
       var wrap = JSON.parse(raw);
-      if (checksum(wrap.payload) !== wrap.sum) return defaultProfile();
+      if (checksum(wrap.payload) !== wrap.sum) return null;
       var p = JSON.parse(wrap.payload);
-      if (p.v !== 1) return defaultProfile();
+      if (p.v !== 1) return null;
       var d = defaultProfile();
       for (var k in d) if (p[k] === undefined) p[k] = d[k];
       return p;
-    } catch (e) { return defaultProfile(); }
+    } catch (e) { return null; }
   }
   function saveProfile(profile) {
     var st = storage();
     if (!st) return false;
     try {
       var payload = JSON.stringify(profile);
-      st.setItem(PROFILE_KEY, JSON.stringify({ sum: checksum(payload), payload: payload }));
+      var wrapped = JSON.stringify({ sum: checksum(payload), payload: payload });
+      st.setItem(PROFILE_KEY, wrapped);
+      if (root.DWPlatform && typeof root.DWPlatform.onSave === 'function')
+        root.DWPlatform.onSave(wrapped); // mirror to the cloud slot
       return true;
     } catch (e) {
       // quota/security errors: persistence unavailable, not a thrown crash
@@ -313,7 +323,7 @@
     clearSavedRun: clearSavedRun,
     resumeRun: resumeRun,
     defaultProfile: defaultProfile,
-    loadProfile: loadProfile,
+    loadProfile: loadProfile, loadProfileRaw: parseProfileWrapped,
     saveProfile: saveProfile,
     starsFor: starsFor,
     masteryXpFor: masteryXpFor,
