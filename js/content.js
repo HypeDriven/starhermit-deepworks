@@ -67,7 +67,7 @@
       ruleset: { startWorkers: 3, startCoins: 0, layerCount: 2, startUnlocked: 1, mechanics: { flares: false, foreman: false } },
       setup: function (state) { state.layers[0].workers = 2; state.workers.idle = 1; },
       steps: [
-        { text: 'You have 1 idle worker. Assign them to Layer 1 (tap the layer, then Assign — or press A).', require: { type: 'assign', layer: 0 } },
+        { text: 'You have 1 idle worker. Assign them to Layer 1 (tap the layer, then Assign — or press {assign}).', require: { type: 'assign', layer: 0 } },
         { text: 'Ore is flowing into the bin and the lift sells it. Wait until you have earned 10 credits.', require: { type: 'earn', amount: 10 * R.COIN_SCALE } }
       ],
       goals: null, parSec: 120
@@ -101,7 +101,7 @@
       intro: 'Seams sometimes flare bright. Tap a flaring seam before it fades for an instant payout.',
       ruleset: { startWorkers: 3, startCoins: 100 * R.COIN_SCALE, layerCount: 2, startUnlocked: 1, flareEveryMinSec: 6, flareEveryMaxSec: 8, flareDurationSec: 25, mechanics: { foreman: false } },
       steps: [
-        { text: 'A seam will flare any moment. When it glows, claim it (tap it, or press F).', require: { type: 'claim_flare' } }
+        { text: 'A seam will flare any moment. When it glows, claim it (tap it, or press {flare}).', require: { type: 'claim_flare' } }
       ],
       goals: null, parSec: 120
     },

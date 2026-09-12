@@ -632,7 +632,9 @@
       if (disposed || !state) return;
       if (typeof document !== 'undefined' && document.hidden) return; // caller also setPaused
       if (paused) return; // static frame was rendered by setPaused(true)
+      var layersChanged = !lastState || !lastState.layers || lastState.layers.length !== state.layers.length;
       lastState = state;
+      if (layersChanged) resize(); // framing depends on the number of layers
       var dt = Math.min(Math.max(dtSec || 0, 0), 0.1);
       time += dt;
 
@@ -888,14 +890,49 @@
 
     // ------------------------------------------------------------- resize ---
     var frameDist = 1; // aspect compensation: pull back on narrow screens
+
+    // The canvas rectangle not covered by HUD chrome (top bar, lesson card,
+    // bottom tray, drawer toggles). The mine is framed inside it via a camera
+    // view offset so layer labels never hide under the HUD.
+    function safeRect(w, h) {
+      var r = { x: 0, y: 0, w: w, h: h };
+      var doc = root.document;
+      if (!doc) return r;
+      var cr = container.getBoundingClientRect();
+      var band = function (id) {
+        var el = doc.getElementById(id);
+        if (!el || el.classList.contains('hidden') || !el.offsetParent) return null;
+        var b = el.getBoundingClientRect();
+        if (!b.width || !b.height) return null;
+        return { t: b.top - cr.top, b: b.bottom - cr.top, l: b.left - cr.left, r: b.right - cr.left };
+      };
+      var top = 0, bottom = h;
+      var ht = band('hud-top'); if (ht && ht.b < h * 0.4) top = Math.max(top, ht.b);
+      var lb = band('lesson-banner');
+      if (lb && lb.b < h * 0.5 && lb.r - lb.l > w * 0.5) top = Math.max(top, lb.b);
+      var hb = band('hud-bottom'); if (hb && hb.t > h * 0.6) bottom = Math.min(bottom, hb.t);
+      r.y = top + 6; r.h = Math.max(60, bottom - top - 12);
+      return r;
+    }
     function resize() {
       if (disposed) return;
       var w = container.clientWidth || 1;
       var h = container.clientHeight || 1;
-      camera.aspect = w / h;
+      var sr = safeRect(w, h);
+      camera.aspect = sr.w / sr.h;
+      camera.setViewOffset(sr.w, sr.h, -sr.x, -sr.y, w, h);
+      var tanHalf = Math.tan((CONFIG.fov * Math.PI / 180) / 2);
       var halfW = CONFIG.layerWidth / 2 + 1.5;
-      var needZ = halfW / (Math.tan((CONFIG.fov * Math.PI / 180) / 2) * camera.aspect);
-      frameDist = Math.max(1, needZ / CONFIG.camPos.z);
+      var needZ = halfW / (tanHalf * camera.aspect);
+      // vertical: surface slab down to the deepest layer that exists in this
+      // mine (unlockable ones included), not the theoretical maximum.
+      var layerCount = lastState && lastState.layers ? lastState.layers.length : CONFIG.maxLayers;
+      var span = CONFIG.surfaceY + (layerCount - 1) * CONFIG.spacing + CONFIG.layerHeight + 1.5;
+      var centreY = CONFIG.surfaceY - span / 2 + 0.75;
+      var needZv = (span / 2) / tanHalf;
+      frameDist = Math.max(1, needZ / CONFIG.camPos.z, needZv / CONFIG.camPos.z);
+      // keep the framed band centred on the visible layers
+      camera.lookAt(CONFIG.camTarget.x, Math.min(CONFIG.camTarget.y, centreY) , CONFIG.camTarget.z);
       camera.updateProjectionMatrix();
       renderer.setPixelRatio(Math.min(root.devicePixelRatio || 1, CONFIG.pixelRatioCap[quality]));
       renderer.setSize(w, h, false); // CSS keeps the canvas filling the container

@@ -73,7 +73,10 @@ p { max-width: 70ch; }
   background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
   padding: 2px 8px; font-size: calc(12px * var(--font-scale)); white-space: nowrap;
   pointer-events: auto; cursor: pointer; color: var(--text);
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 32px; min-width: 56px;
 }
+@media (pointer: coarse) { .layer-label { min-height: 44px; min-width: 72px; font-size: calc(14px * var(--font-scale)); } }
 .layer-label.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
 .layer-label.blocked { border-color: var(--bad); color: var(--bad); }
 .layer-label.flare { border-color: var(--warn); color: var(--warn); animation: pulse 0.8s infinite; }
@@ -217,8 +220,8 @@ p { max-width: 70ch; }
 #hud-bottom .btn { flex: 1; }
 
 #lesson-banner {
-  position: absolute; top: 76px; left: 50%; transform: translateX(-50%);
-  max-width: min(92vw, 520px);
+  position: absolute; top: calc(var(--hud-top-h, 68px) + 8px); left: 50%; transform: translateX(-50%);
+  width: min(92vw, 520px); box-sizing: border-box;
   background: var(--panel); border: 1px solid var(--accent); border-radius: var(--radius);
   padding: 0.7em 1.1em; text-align: center;
 }
@@ -292,6 +295,7 @@ input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accent);
   #hud-right:not(.open) { transform: translateX(calc(100% + 12px)); }
   .rail-toggle {
     display: block; position: absolute; top: 70px; z-index: 5;
+    min-width: 44px; min-height: 44px; font-size: 1.1em;
     background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
   }
   #rail-toggle-left { left: calc(8px + var(--sal)); }
@@ -313,6 +317,8 @@ input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accent);
   .title-art, .result-art, .modal-art { display: none; }
   .rail { top: 56px; bottom: calc(8px + var(--sab)); width: 220px; }
   #hud-top { padding-top: calc(4px + var(--sat)); }
+  /* the lesson card docks left under the HUD so it never sits over layer labels */
+  #lesson-banner { left: calc(60px + var(--sal)); transform: none; width: min(40vw, 300px); font-size: 0.85em; padding: 0.4em 0.7em; text-align: left; }
   .hud-cell { padding: 0.25em 0.6em; }
 }
 

@@ -706,14 +706,30 @@
     window.addEventListener('orientationchange', function () {
       setTimeout(function () { if (app.renderer) app.renderer.resize(); }, 120);
     });
+    // HUD chrome changes size without a window resize (lesson card, wrapped
+    // top bar): keep the banner below the top bar and re-frame the mine.
+    var hudTop = document.getElementById('hud-top');
+    var syncHud = function () {
+      if (hudTop) document.documentElement.style.setProperty('--hud-top-h', Math.ceil(hudTop.getBoundingClientRect().bottom) + 'px');
+      if (app.renderer) app.renderer.resize();
+    };
+    if (typeof ResizeObserver === 'function') {
+      var ro = new ResizeObserver(syncHud);
+      if (hudTop) ro.observe(hudTop);
+      var banner = document.getElementById('lesson-banner');
+      if (banner) ro.observe(banner);
+    }
+    syncHud();
   }
 
   // ------------------------------------------------------------ HUD model ---
   function hudModel() {
     var lessonText = null;
     if (app.lesson && app.lesson.steps[app.lessonStepIdx]) {
+      // Shortcut placeholders ({assign}, {hire}, …) resolve to the player's real bindings.
+      var keys = (app.settings && app.settings.keys) || {};
       lessonText = 'Lesson ' + (app.lessonStepIdx + 1) + '/' + app.lesson.steps.length + ': ' +
-        app.lesson.steps[app.lessonStepIdx].text;
+        app.lesson.steps[app.lessonStepIdx].text.replace(/\{(\w+)\}/g, function (m, k) { return keys[k] || m; });
     }
     return {
       state: app.run.state,
