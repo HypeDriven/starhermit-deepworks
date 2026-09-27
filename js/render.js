@@ -7,7 +7,7 @@
  * The renderer NEVER mutates rules state; `setSnapshot` only reads it.
  * All decorative motion is a pure function of (state, accumulated time);
  * the only smoothed quantities are critically-damped springs (camera yaw,
- * selection lift, lift target depth), so there is no cumulative lerp drift.
+ * selection lift), so there is no cumulative lerp drift.
  *
  * Scene: a vertical mine cross-section framed like a tabletop diorama.
  * No external assets; the few textures (sky gradient, sealed-rock cracks)
@@ -98,6 +98,61 @@
   }
 
   function smooth01(t) { return t * t * (3 - 2 * t); }
+
+  // Cosmetic trips summarize the continuous economy into deepest-first loads.
+  // Each trip keeps its route and capacity until unloading, even during upgrades.
+  function planLiftTrip(state) {
+    if (!state.ruleset.mechanics.lift) return null;
+    var capacity = RULES.liftCapacity(state);
+    var cycle = RULES.liftCycleMs(state) / 1000;
+    var stops = [], carried = 0;
+    for (var i = Math.min(state.layers.length, CONFIG.maxLayers) - 1; i >= 0; i--) {
+      var layer = state.layers[i];
+      if (!layer.unlocked) continue;
+      var available = layer.milliOre + RULES.layerRate(state, i) * cycle;
+      var amount = Math.min(Math.max(0, available), capacity - carried);
+      if (amount <= 0) continue;
+      stops.push({ layer: i, before: carried / capacity, after: (carried + amount) / capacity });
+      carried += amount;
+      if (carried >= capacity) break;
+    }
+    if (!stops.length) return null;
+    var loadSeconds = 0.45, unloadSeconds = 0.35;
+    var travelSeconds = Math.max(0.6, cycle - stops.length * loadSeconds - unloadSeconds);
+    var surface = CONFIG.surfaceY - 0.09;
+    function floor(i) { return CONFIG.firstLayerY - i * CONFIG.spacing - CONFIG.layerHeight / 2 - 0.09; }
+    var distance = 2 * (surface - floor(stops[0].layer));
+    var segments = [], elapsed = 0, from = -1, fill = 0;
+    function add(kind, to, seconds, nextFill) {
+      segments.push({ kind: kind, from: from, to: to, start: elapsed, duration: seconds, before: fill, after: nextFill });
+      elapsed += seconds; from = to; fill = nextFill;
+    }
+    stops.forEach(function (stop) {
+      var fromY = from < 0 ? surface : floor(from);
+      add('travel', stop.layer, travelSeconds * Math.abs(fromY - floor(stop.layer)) / distance, fill);
+      add('load', stop.layer, loadSeconds, stop.after);
+    });
+    add('travel', -1, travelSeconds * (surface - floor(from)) / distance, fill);
+    add('unload', -1, unloadSeconds, 0);
+    return { segments: segments, duration: elapsed };
+  }
+
+  function sampleLiftTrip(trip, elapsed, floorYs) {
+    var surface = CONFIG.surfaceY - 0.09;
+    if (!trip) return { y: surface, fill: 0, phase: 'idle' };
+    var segments = trip.segments;
+    var seg = segments[segments.length - 1];
+    for (var i = 0; i < segments.length; i++) {
+      if (elapsed < segments[i].start + segments[i].duration) { seg = segments[i]; break; }
+    }
+    var t = smooth01(Math.max(0, Math.min(1, (elapsed - seg.start) / seg.duration)));
+    function y(index) { return index < 0 ? surface : floorYs[index] - 0.09; }
+    return {
+      y: y(seg.from) + (y(seg.to) - y(seg.from)) * t,
+      fill: seg.before + (seg.after - seg.before) * t,
+      phase: seg.kind
+    };
+  }
 
   // ---------------------------------------------------------------- factory ---
   function create(container, opts) {
@@ -276,7 +331,6 @@
     var rimGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(W + 0.2, H + 1.0, D + 0.2));
     var ringGeo = new THREE.RingGeometry(0.9, 1.18, 40);
     var unitBeamGeo = new THREE.BoxGeometry(0.3, 1, 0.3);
-    var oreChunkGeo = new THREE.OctahedronGeometry(0.3, 0);
     var markerGeo = new THREE.OctahedronGeometry(0.42, 0);
 
     // ------------------------------------------------------------- surface ---
@@ -511,10 +565,23 @@
     var cable = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 60, 4), beamMat);
     cable.position.y = 30; // runs up out of frame
     lift.add(cable);
-    var oreChunk = new THREE.Mesh(oreChunkGeo, oreMat);
-    oreChunk.position.set(0, 0.4, 0);
-    oreChunk.visible = false;
-    lift.add(oreChunk);
+    // A bed of ore grows from the platform; the fixed cage gives it a capacity reference.
+    var cargoGeo = new THREE.BoxGeometry(1.5, 0.85, 1.1);
+    cargoGeo.translate(0, 0.425, 0);
+    var cargo = new THREE.Mesh(cargoGeo, oreMat);
+    cargo.position.y = 0.09;
+    cargo.visible = false;
+    lift.add(cargo);
+    var cargoTop = new THREE.Group();
+    var chunkGeo = new THREE.OctahedronGeometry(0.18, 0);
+    for (var chunk = 0; chunk < 12; chunk++) {
+      var piece = new THREE.Mesh(chunkGeo, oreMat);
+      piece.position.set((chunk % 4 - 1.5) * 0.34, 0, (Math.floor(chunk / 4) - 1) * 0.32);
+      piece.rotation.set(chunk * 0.7, chunk * 1.3, 0.4);
+      piece.scale.set(1, 0.65 + (chunk % 3) * 0.2, 1);
+      cargoTop.add(piece);
+    }
+    lift.add(cargoTop);
 
     // ----------------------------------------------------- VFX: particles ---
     // Pooled THREE.Points; raycasts only ever target hitBoxes, so particles
@@ -618,8 +685,9 @@
     var yaw = { v: 0, w: 0 };
     var yawTarget = 0;
     var shakeAmp = 0;
-    var liftDepth = { v: 0, w: 0 }; // spring toward current target depth
-    var liftPhase = 0;              // 0..1 within one cycle, advanced by dt/cycle
+    var liftTrip = null, liftElapsed = 0;
+    var liftClock = -1, liftSeed = null;
+    var liftFloors = new Array(CONFIG.maxLayers);
     var flashT = 0;
     var glowT = 0;
     var errorT = 0;
@@ -633,10 +701,6 @@
     function binCapOf(state, i) {
       if (RULES && RULES.binCapMilli) return RULES.binCapMilli(state, i);
       return (state.ruleset.binCap && state.ruleset.binCap[i]) || 1;
-    }
-    function cycleMsOf(state) {
-      if (RULES && RULES.liftCycleMs) return RULES.liftCycleMs(state);
-      return state.ruleset.liftCycleBase || 4000;
     }
     function deepestWorkingLayer(state) {
       var best = -1;
@@ -747,19 +811,33 @@
         flareMarker.visible = false;
       }
 
-      // lift: continuous ride between the surface and the deepest working
-      // layer; cycle period from the rules, phase advanced by real time
-      var cycleMs = Math.max(600, cycleMsOf(state));
-      liftPhase = (liftPhase + (dt * 1000) / cycleMs) % 1;
-      var deepIdx = deepestWorkingLayer(state);
-      var surfaceStop = CONFIG.surfaceY + 0.15;
-      var targetDepth = deepIdx >= 0 ? layers[deepIdx].baseY : surfaceStop;
-      springStep(liftDepth, targetDepth, dt, 2.0);
-      var tri = liftPhase < 0.5 ? liftPhase * 2 : 2 - liftPhase * 2;
-      var eased = smooth01(tri);
-      lift.position.set(0, surfaceStop + (liftDepth.v - surfaceStop) * eased, 0);
-      oreChunk.visible = !!(state.lift && state.lift.transitMilliOre > 0);
-      if (oreChunk.visible) oreChunk.rotation.y = time * 1.5;
+      // Dock the platform's top at the actual floor, including selection lift.
+      // Freeze the itinerary during travel so a new crew cannot move the destination.
+      var clock = state.tick + state.tickMs / 1000;
+      if (liftSeed !== state.seed || clock < liftClock || !state.ruleset.mechanics.lift ||
+          (liftTrip && liftTrip.segments.some(function (seg) {
+            return seg.to >= 0 && (!state.layers[seg.to] || !state.layers[seg.to].unlocked);
+          }))) {
+        liftTrip = null; liftElapsed = 0;
+      }
+      liftSeed = state.seed; liftClock = clock;
+      if (!liftTrip) liftTrip = planLiftTrip(state);
+      if (liftTrip) {
+        liftElapsed += dt;
+        if (liftElapsed >= liftTrip.duration) {
+          liftElapsed -= liftTrip.duration;
+          liftTrip = planLiftTrip(state);
+        }
+      } else liftElapsed = 0;
+      for (var fi = 0; fi < CONFIG.maxLayers; fi++) {
+        liftFloors[fi] = layers[fi].group.position.y - H / 2;
+      }
+      var ride = sampleLiftTrip(liftTrip, liftElapsed, liftFloors);
+      lift.position.set(0, ride.y, 0);
+      cargo.visible = cargoTop.visible = ride.fill > 0.001;
+      cargo.scale.y = Math.max(0.001, ride.fill);
+      cargoTop.position.y = 0.09 + 0.85 * ride.fill;
+      cargoTop.scale.y = Math.min(1, ride.fill * 5);
 
       // camera: idle sway + drag-orbit yaw spring + decaying pulse shake
       springStep(yaw, yawTarget, dt, CONFIG.springW);
@@ -1090,5 +1168,5 @@
     };
   }
 
-  root.DWRender = { create: create };
+  root.DWRender = { create: create, planLiftTrip: planLiftTrip, sampleLiftTrip: sampleLiftTrip };
 })(typeof self !== 'undefined' ? self : this);

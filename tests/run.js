@@ -388,5 +388,58 @@ section('away simulation');
   ok(st.tick >= 7260, 'away sim advances tick');
 }
 
+section('lift presentation: docking, loading, and cargo');
+{
+  const vm = require('node:vm');
+  const fs = require('node:fs');
+  const context = { DWRules: R };
+  vm.runInNewContext(fs.readFileSync(require.resolve('../js/render.js'), 'utf8'), context);
+  const { planLiftTrip, sampleLiftTrip } = context.DWRender;
+  const st = R.createState(22, { layerCount: 3, startUnlocked: 3, startWorkers: 0 });
+  st.layers[2].milliOre = 2000;
+  st.layers[0].milliOre = 2000;
+  const before = JSON.stringify(st);
+  const trip = planLiftTrip(st);
+  eq(JSON.stringify(st), before, 'planning never mutates the economy');
+  const loads = trip.segments.filter(s => s.kind === 'load');
+  eq(loads.length, 2, 'stops at both stocked levels, skips empty level');
+  eq(loads[0].to, 2, 'loads deepest level first');
+  eq(loads[1].to, 0, 'collects upper level on ascent');
+  const floors = [-3.05, -6.25, -9.45];
+  const near = (a, b, label) => ok(Math.abs(a - b) < 1e-9, label);
+  loads.forEach((load, i) => {
+    ok(load.duration >= 0.4, 'loading pause is perceptible');
+    const start = sampleLiftTrip(trip, load.start, floors);
+    const middle = sampleLiftTrip(trip, load.start + load.duration / 2, floors);
+    const end = sampleLiftTrip(trip, load.start + load.duration, floors);
+    near(start.y + 0.09, floors[load.to], 'platform top meets floor at arrival');
+    near(middle.y, start.y, 'lift stays docked while loading');
+    near(end.y, start.y, 'lift stays docked until loading ends');
+    near(end.fill, (i + 1) * 0.25, 'cargo reflects cumulative fraction of capacity');
+    ok(middle.fill > start.fill && middle.fill < end.fill, 'cargo fills during pause');
+  });
+  const selectedFloors = floors.slice(); selectedFloors[2] += 0.32;
+  near(sampleLiftTrip(trip, loads[0].start + 0.2, selectedFloors).y + 0.09,
+    selectedFloors[2], 'docking follows selected layer lift');
+  const ascent = trip.segments[trip.segments.length - 2];
+  near(sampleLiftTrip(trip, ascent.start + ascent.duration / 2, floors).fill, 0.5,
+    'cargo remains aboard during ascent');
+  near(sampleLiftTrip(trip, trip.duration, floors).fill, 0, 'cargo empties at surface');
+  near(sampleLiftTrip(trip, trip.duration, floors).y + 0.09, 1.2, 'surface docking aligns');
+  st.layers[2].milliOre = 20000;
+  const full = planLiftTrip(st);
+  eq(full.segments.filter(s => s.kind === 'load').length, 1, 'full cage returns directly to surface');
+  eq(full.segments.find(s => s.kind === 'load').after, 1, 'cargo never exceeds capacity');
+  st.lift.speedLevel = 30;
+  ok(planLiftTrip(st).segments.find(s => s.kind === 'load').duration >= 0.4,
+    'speed upgrades preserve loading pause');
+  st.layers.forEach(l => { l.milliOre = 0; });
+  eq(planLiftTrip(st), null, 'empty mine parks lift at surface despite stale transit hint');
+  st.layers[1].workers = 1;
+  ok(planLiftTrip(st) !== null, 'working seam supplies a trip even when continuous haul empties its bin');
+  st.ruleset.mechanics.lift = false;
+  eq(planLiftTrip(st), null, 'disabled lift stays idle');
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
