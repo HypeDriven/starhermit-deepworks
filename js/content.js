@@ -22,32 +22,32 @@
   var THEMES = [
     {
       id: 'emberdeep', name: 'Emberdeep',
-      rock: 0x2b1d18, rockDark: 0x191009, seam: 0xff9a3c, seamHot: 0xffd28a,
-      fog: 0x140b06, key: 0xffc890, fill: 0x3a4a66, accent: 0xffb35c, lift: 0x8a97a8,
+      rock: 0x754639, rockDark: 0x152d3b, seam: 0xff751f, seamHot: 0xffdfa0,
+      fog: 0x091622, key: 0xffd4ab, fill: 0x65b9de, accent: 0xffb653, lift: 0x72b7c6,
       ambience: 'warm'
     },
     {
       id: 'glacier', name: 'Glacier Vault',
-      rock: 0x1d2733, rockDark: 0x0e141d, seam: 0x6fd6ff, seamHot: 0xd6f4ff,
-      fog: 0x0a121a, key: 0xbfe6ff, fill: 0x24455e, accent: 0x8fe0ff, lift: 0x7f93a6,
+      rock: 0x386a91, rockDark: 0x172641, seam: 0x27dcff, seamHot: 0xd1fbff,
+      fog: 0x0a152b, key: 0xd1edff, fill: 0x857ddd, accent: 0x6be5ff, lift: 0xc5a8df,
       ambience: 'cold'
     },
     {
       id: 'verdant', name: 'Verdant Hollow',
-      rock: 0x1e2a1c, rockDark: 0x0f160e, seam: 0x7dff9e, seamHot: 0xd8ffd8,
-      fog: 0x0b130a, key: 0xd2ffc8, fill: 0x2e4a3a, accent: 0x9dffb4, lift: 0x8898a0,
+      rock: 0x38695d, rockDark: 0x102e32, seam: 0x51ee92, seamHot: 0xe0ffc0,
+      fog: 0x081d22, key: 0xffe3aa, fill: 0x54bdb5, accent: 0xa7f77c, lift: 0xd5b577,
       ambience: 'organic'
     },
     {
       id: 'amethyst', name: 'Amethyst Rift',
-      rock: 0x241d2e, rockDark: 0x120d19, seam: 0xc07dff, seamHot: 0xecd8ff,
-      fog: 0x100a16, key: 0xe0c8ff, fill: 0x3a2e4e, accent: 0xd09aff, lift: 0x8d8a9e,
+      rock: 0x654980, rockDark: 0x24203f, seam: 0xd45cff, seamHot: 0xffd6f6,
+      fog: 0x14102c, key: 0xffc9e6, fill: 0x629cde, accent: 0xe899ff, lift: 0x75c9d0,
       ambience: 'mystic'
     },
     {
       id: 'ashen', name: 'Ashen Gallery',
-      rock: 0x26262a, rockDark: 0x131316, seam: 0xffe066, seamHot: 0xfff4c2,
-      fog: 0x0d0d0f, key: 0xfff0c0, fill: 0x3c3c44, accent: 0xffe066, lift: 0x9099a4,
+      rock: 0x505b73, rockDark: 0x1b263e, seam: 0xffc52e, seamHot: 0xfff1ad,
+      fog: 0x10192b, key: 0xffdfad, fill: 0x729acf, accent: 0xffd35b, lift: 0xa1b9cf,
       ambience: 'neutral'
     }
   ];

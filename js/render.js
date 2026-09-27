@@ -61,8 +61,8 @@
 
   var DEFAULT_THEME = {
     id: '_fallback', name: 'Fallback',
-    rock: 0x2b1d18, rockDark: 0x191009, seam: 0xff9a3c, seamHot: 0xffd28a,
-    fog: 0x140b06, key: 0xffc890, fill: 0x3a4a66, accent: 0xffb35c, lift: 0x8a97a8
+    rock: 0x754639, rockDark: 0x152d3b, seam: 0xff751f, seamHot: 0xffdfa0,
+    fog: 0x091622, key: 0xffd4ab, fill: 0x65b9de, accent: 0xffb653, lift: 0x72b7c6
   };
 
   // ----------------------------------------------------------------- PRNG ---
@@ -78,6 +78,9 @@
   }
 
   // ------------------------------------------------------------- helpers ---
+  // Palette swatches are sRGB; lit materials expect linear values.
+  function pigment(hex) { return new THREE.Color(hex).convertSRGBToLinear(); }
+
   function cssColor(hex, mul) {
     var r = Math.min(255, Math.round(((hex >> 16) & 255) * mul));
     var g = Math.min(255, Math.round(((hex >> 8) & 255) * mul));
@@ -115,7 +118,7 @@
     if (!renderer.getContext()) return null;
 
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.5;
+    renderer.toneMappingExposure = 1.15;
     renderer.outputEncoding = THREE.sRGBEncoding;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -155,8 +158,8 @@
       c.width = 4; c.height = 256;
       var g = c.getContext('2d');
       var grad = g.createLinearGradient(0, 0, 0, 256);
-      grad.addColorStop(0, cssColor(th.fog, 3.2));
-      grad.addColorStop(0.45, cssColor(th.fog, 1.5));
+      grad.addColorStop(0, cssColor(th.fill, 0.45));
+      grad.addColorStop(0.4, cssColor(th.fog, 1.4));
       grad.addColorStop(1, cssColor(th.fog, 0.7));
       g.fillStyle = grad;
       g.fillRect(0, 0, 4, 256);
@@ -165,17 +168,25 @@
       return tex;
     }
 
-    function makeCrackTexture(th) {
+    function makeCrackTexture(th, sealed) {
       var c = document.createElement('canvas');
-      c.width = 128; c.height = 128;
+      c.width = 256; c.height = 128;
       var g = c.getContext('2d');
-      g.fillStyle = cssColor(th.rockDark, 1.0);
-      g.fillRect(0, 0, 128, 128);
+      g.fillStyle = cssColor(th.rock, sealed ? 0.6 : 1);
+      g.fillRect(0, 0, 256, 128);
       var rnd = mulberry32(CONFIG.seed ^ 0xc4ac);
-      g.strokeStyle = cssColor(th.rock, 1.9);
+      // Broad, irregular sediment bands give the cut faces readable structure.
+      for (var band = 0; band < 7; band++) {
+        var yBand = band * 20;
+        g.fillStyle = cssColor(th.rock, (sealed ? 0.42 : 0.72) + rnd() * 0.22);
+        g.beginPath(); g.moveTo(0, yBand);
+        for (var bx = 0; bx <= 256; bx += 16) g.lineTo(bx, yBand + rnd() * 10);
+        g.lineTo(256, yBand + 15); g.lineTo(0, yBand + 15); g.fill();
+      }
+      g.strokeStyle = cssColor(th.rockDark, 0.7);
       g.lineWidth = 1;
       for (var i = 0; i < 10; i++) {
-        var x = rnd() * 128, y = rnd() * 128;
+        var x = rnd() * 256, y = rnd() * 128;
         g.beginPath();
         g.moveTo(x, y);
         var segs = 3 + Math.floor(rnd() * 4);
@@ -208,7 +219,8 @@
     }
 
     var skyTex = makeSkyTexture(theme);
-    var crackTex = makeCrackTexture(theme);
+    var crackTex = makeCrackTexture(theme, true);
+    var rockTex = makeCrackTexture(theme, false);
     var glowTex = makeGlowTexture();
     scene.background = skyTex;
     scene.fog = new THREE.Fog(theme.fog, CONFIG.fogNear, CONFIG.fogFar);
@@ -229,19 +241,22 @@
     scene.add(keyLight.target);
     var hemiLight = new THREE.HemisphereLight(theme.fill, theme.rockDark, 1.3);
     scene.add(hemiLight);
+    var rimLight = new THREE.DirectionalLight(theme.fill, 1.1);
+    rimLight.position.set(-12, 2, 8);
+    scene.add(rimLight);
 
     // ----------------------------------------------------------- materials ---
-    var rockMat = new THREE.MeshStandardMaterial({ color: theme.rock, roughness: 0.95, metalness: 0.02 });
-    var rockDarkMat = new THREE.MeshStandardMaterial({ color: theme.rockDark, emissive: theme.rockDark, emissiveIntensity: 0.5, roughness: 1.0, metalness: 0.0 });
-    var lockedMat = new THREE.MeshStandardMaterial({ color: theme.rock, map: crackTex, roughness: 1.0, metalness: 0.0 });
-    var liftMat = new THREE.MeshStandardMaterial({ color: theme.lift, roughness: 0.45, metalness: 0.6 });
-    var depotMat = new THREE.MeshStandardMaterial({ color: theme.accent, roughness: 0.85, metalness: 0.05 });
-    var oreMat = new THREE.MeshStandardMaterial({ color: theme.seam, emissive: theme.seam, emissiveIntensity: 0.9, roughness: 0.4, metalness: 0.1 });
-    var flareMat = new THREE.MeshStandardMaterial({ color: theme.seamHot, emissive: theme.seamHot, emissiveIntensity: 1.6, roughness: 0.3, metalness: 0.1 });
-    var rimMat = new THREE.LineBasicMaterial({ color: theme.accent, transparent: true, opacity: 0.9 });
-    var ringMat = new THREE.MeshBasicMaterial({ color: theme.accent, transparent: true, opacity: 0.8, side: THREE.DoubleSide });
+    var rockMat = new THREE.MeshStandardMaterial({ color: 0xffffff, map: rockTex, roughness: 0.95, metalness: 0.02 });
+    var rockDarkMat = new THREE.MeshStandardMaterial({ color: pigment(theme.rockDark), emissive: pigment(theme.rockDark), emissiveIntensity: 0.5, roughness: 1.0, metalness: 0.0 });
+    var lockedMat = new THREE.MeshStandardMaterial({ color: 0xffffff, map: crackTex, roughness: 1.0, metalness: 0.0 });
+    var liftMat = new THREE.MeshStandardMaterial({ color: pigment(theme.lift), roughness: 0.45, metalness: 0.6 });
+    var depotMat = new THREE.MeshStandardMaterial({ color: pigment(theme.accent), roughness: 0.85, metalness: 0.05 });
+    var oreMat = new THREE.MeshStandardMaterial({ color: pigment(theme.seam), emissive: pigment(theme.seam), emissiveIntensity: 0.9, roughness: 0.4, metalness: 0.1 });
+    var flareMat = new THREE.MeshStandardMaterial({ color: pigment(theme.seamHot), emissive: pigment(theme.seamHot), emissiveIntensity: 1.6, roughness: 0.3, metalness: 0.1 });
+    var rimMat = new THREE.LineBasicMaterial({ color: pigment(theme.accent), transparent: true, opacity: 0.9 });
+    var ringMat = new THREE.MeshBasicMaterial({ color: pigment(theme.accent), transparent: true, opacity: 0.8, side: THREE.DoubleSide });
     var hitMat = new THREE.MeshBasicMaterial({ visible: false }); // raycast-only
-    var beamMat = new THREE.MeshStandardMaterial({ color: theme.lift, roughness: 0.6, metalness: 0.4 });
+    var beamMat = new THREE.MeshStandardMaterial({ color: pigment(theme.lift), roughness: 0.6, metalness: 0.4 });
 
     // ---------------------------------------------------------- geometries ---
     var W = CONFIG.layerWidth, H = CONFIG.layerHeight, D = CONFIG.layerDepth;
@@ -362,8 +377,8 @@
 
         // glowing mineral seam: instanced elongated crystals on the back wall
         var seamMat = new THREE.MeshStandardMaterial({
-          color: theme.seam, emissive: theme.seam, emissiveIntensity: 0.9,
-          roughness: 0.35, metalness: 0.15
+          color: pigment(theme.seam), emissive: pigment(theme.seam), emissiveIntensity: 0.5,
+          roughness: 0.22, metalness: 0.25
         });
         var crystals = new THREE.InstancedMesh(crystalGeo, seamMat, CONFIG.crystalMax);
         crystals.frustumCulled = false; // instances spread beyond base bounds
@@ -385,6 +400,7 @@
           tmpV.set(cx, cy, cz);
           tmpM.compose(tmpV, tmpQ, tmpS);
           crystals.setMatrixAt(ci, tmpM);
+          crystals.setColorAt(ci, new THREE.Color().setHSL(0.06 + (ci % 5) * 0.025, 0.15, 0.58 + (ci % 4) * 0.12));
         }
         crystals.count = CONFIG.crystalCounts[quality];
         crystals.instanceMatrix.needsUpdate = true;
@@ -395,7 +411,7 @@
         binFrame.position.set(CONFIG.binX, -H / 2 + (CONFIG.binHeight + 0.25) / 2 + 0.05, CONFIG.binZ);
         interior.add(binFrame);
         var binFillMat = new THREE.MeshStandardMaterial({
-          color: theme.seam, emissive: theme.seam, emissiveIntensity: 0.55,
+          color: pigment(theme.seam), emissive: pigment(theme.seam), emissiveIntensity: 0.55,
           roughness: 0.5, metalness: 0.1
         });
         var binFill = new THREE.Mesh(binFillGeo, binFillMat);
@@ -411,7 +427,7 @@
         interior.add(warnCap);
 
         // worker figures: instanced cones with deterministic offsets
-        var workerMat = new THREE.MeshStandardMaterial({ color: theme.lift, roughness: 0.7, metalness: 0.2 });
+        var workerMat = new THREE.MeshStandardMaterial({ color: pigment(theme.accent), roughness: 0.7, metalness: 0.2 });
         var workers = new THREE.InstancedMesh(workerGeo, workerMat, CONFIG.workerSlots);
         workers.frustumCulled = false;
         workers.castShadow = true;
@@ -580,7 +596,7 @@
     camera.add(flashMesh);
 
     var glowMat = new THREE.MeshBasicMaterial({
-      map: glowTex, color: theme.accent, transparent: true, opacity: 0,
+      map: glowTex, color: pigment(theme.accent), transparent: true, opacity: 0,
       blending: THREE.AdditiveBlending, depthWrite: false
     });
     var glowMesh = new THREE.Mesh(new THREE.PlaneGeometry(4, 4), glowMat);
@@ -669,7 +685,7 @@
             ? 1.4 + 0.4 * Math.sin(time * 4)
             : 1.7 + 0.8 * Math.sin(time * 9);
         } else {
-          rec.seamMat.emissiveIntensity = 0.85 + 0.18 * Math.sin(time * 1.7 + i2 * 1.3);
+          rec.seamMat.emissiveIntensity = 0.48 + 0.1 * Math.sin(time * 1.7 + i2 * 1.3);
         }
 
         // ore bin gauge
@@ -684,8 +700,8 @@
           rec.binFill.scale.x = reducedMotion ? 1 : 1 + 0.14 * Math.sin(time * 10);
           rec.warnCap.visible = true;
         } else {
-          rec.binFillMat.color.setHex(theme.seam);
-          rec.binFillMat.emissive.setHex(theme.seam);
+          rec.binFillMat.color.setHex(theme.seam).convertSRGBToLinear();
+          rec.binFillMat.emissive.setHex(theme.seam).convertSRGBToLinear();
           rec.binFill.scale.x = 1;
           rec.warnCap.visible = false;
         }
@@ -778,31 +794,36 @@
     // ------------------------------------------------------------- theme ---
     function setTheme(th) {
       theme = th || DEFAULT_THEME;
-      rockMat.color.setHex(theme.rock);
-      rockDarkMat.color.setHex(theme.rockDark);
-      rockDarkMat.emissive.setHex(theme.rockDark);
-      lockedMat.color.setHex(theme.rock);
-      liftMat.color.setHex(theme.lift);
-      beamMat.color.setHex(theme.lift);
-      depotMat.color.setHex(theme.accent);
-      oreMat.color.setHex(theme.seam);
-      oreMat.emissive.setHex(theme.seam);
-      flareMat.color.setHex(theme.seamHot);
-      flareMat.emissive.setHex(theme.seamHot);
-      rimMat.color.setHex(theme.accent);
-      ringMat.color.setHex(theme.accent);
-      glowMat.color.setHex(theme.accent);
+      var oldRock = rockMat.map;
+      rockTex = makeCrackTexture(theme, false);
+      rockMat.map = rockTex;
+      rockMat.needsUpdate = true;
+      if (oldRock) oldRock.dispose();
+      rockDarkMat.color.setHex(theme.rockDark).convertSRGBToLinear();
+      rockDarkMat.emissive.setHex(theme.rockDark).convertSRGBToLinear();
+      rimLight.color.setHex(theme.fill);
+      liftMat.color.setHex(theme.lift).convertSRGBToLinear();
+      beamMat.color.setHex(theme.lift).convertSRGBToLinear();
+      depotMat.color.setHex(theme.accent).convertSRGBToLinear();
+      oreMat.color.setHex(theme.seam).convertSRGBToLinear();
+      oreMat.emissive.setHex(theme.seam).convertSRGBToLinear();
+      flareMat.color.setHex(theme.seamHot).convertSRGBToLinear();
+      flareMat.emissive.setHex(theme.seamHot).convertSRGBToLinear();
+      rimMat.color.setHex(theme.accent).convertSRGBToLinear();
+      ringMat.color.setHex(theme.accent).convertSRGBToLinear();
+      glowMat.color.setHex(theme.accent).convertSRGBToLinear();
       keyLight.color.setHex(theme.key);
       hemiLight.color.setHex(theme.fill);
       hemiLight.groundColor.setHex(theme.rockDark);
       scene.fog.color.setHex(theme.fog);
       for (var i2 = 0; i2 < layers.length; i2++) {
-        layers[i2].seamMat.color.setHex(theme.seam);
-        layers[i2].seamMat.emissive.setHex(theme.seam);
+        layers[i2].workers.material.color.setHex(theme.accent).convertSRGBToLinear();
+        layers[i2].seamMat.color.setHex(theme.seam).convertSRGBToLinear();
+        layers[i2].seamMat.emissive.setHex(theme.seam).convertSRGBToLinear();
         layers[i2].lamp.color.setHex(theme.seam);
         if (!layers[i2].warnCap.visible) {
-          layers[i2].binFillMat.color.setHex(theme.seam);
-          layers[i2].binFillMat.emissive.setHex(theme.seam);
+          layers[i2].binFillMat.color.setHex(theme.seam).convertSRGBToLinear();
+          layers[i2].binFillMat.emissive.setHex(theme.seam).convertSRGBToLinear();
         }
       }
       // regenerate theme-derived textures; dispose the old ones
@@ -811,7 +832,7 @@
       scene.background = skyTex;
       if (oldSky && oldSky.dispose) oldSky.dispose();
       var oldCrack = lockedMat.map;
-      crackTex = makeCrackTexture(theme);
+      crackTex = makeCrackTexture(theme, true);
       lockedMat.map = crackTex;
       lockedMat.needsUpdate = true;
       if (oldCrack && oldCrack.dispose) oldCrack.dispose();

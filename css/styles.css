@@ -1,12 +1,12 @@
 /* Deepworks — UI stylesheet. Semantic HTML layer over the Three.js canvas. */
 
 :root {
-  --bg: #100a06;
-  --panel: rgba(24, 15, 10, 0.92);
-  --panel-solid: #1c120c;
-  --line: #3a2a1c;
-  --text: #f0e4d4;
-  --text-dim: #b8a68e;
+  --bg: #091622;
+  --panel: rgba(12, 27, 40, 0.94);
+  --panel-solid: #132d40;
+  --line: #315267;
+  --text: #f3eee4;
+  --text-dim: #adc2cd;
   --accent: #ffb35c;
   --accent-strong: #ff9a3c;
   --good: #7dff9e;
@@ -22,10 +22,10 @@
 }
 
 /* theme accents (set on <body data-theme="...">) */
-body[data-theme="glacier"]  { --accent: #8fe0ff; --accent-strong: #6fd6ff; --bg: #070d13; }
-body[data-theme="verdant"]  { --accent: #9dffb4; --accent-strong: #7dff9e; --bg: #070d08; }
-body[data-theme="amethyst"] { --accent: #d09aff; --accent-strong: #c07dff; --bg: #0c0712; }
-body[data-theme="ashen"]    { --accent: #ffe066; --accent-strong: #ffd23c; --bg: #0a0a0c; }
+body[data-theme="glacier"]  { --accent: #8fe0ff; --accent-strong: #6fd6ff; --bg: #0a152b; --panel: rgba(13, 28, 52, 0.94); --panel-solid: #192f50; --line: #365978; }
+body[data-theme="verdant"]  { --accent: #9dffb4; --accent-strong: #7dff9e; --bg: #081d22; --panel: rgba(11, 32, 33, 0.94); --panel-solid: #163b39; --line: #35665d; }
+body[data-theme="amethyst"] { --accent: #d09aff; --accent-strong: #c07dff; --bg: #14102c; --panel: rgba(29, 20, 48, 0.94); --panel-solid: #352446; --line: #66507c; }
+body[data-theme="ashen"]    { --accent: #ffe066; --accent-strong: #ffd23c; --bg: #10192b; --panel: rgba(18, 27, 44, 0.94); --panel-solid: #26354b; --line: #4a5e76; }
 
 /* accessibility variants */
 body.hc {
@@ -144,7 +144,7 @@ p { max-width: 70ch; }
 
 .meter { height: 8px; background: #000; border: 1px solid var(--line); border-radius: 99px; overflow: hidden; }
 .meter.big { height: 14px; }
-.meter > div { height: 100%; background: var(--accent-strong); width: 0%; transition: width 0.2s linear; }
+.meter > div { height: 100%; background: linear-gradient(90deg, var(--accent-strong), var(--accent)); width: 0%; transition: width 0.2s linear; }
 
 /* --------------------------------------------------------------- cards --- */
 .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.8em; margin: 1em 0; }
@@ -188,6 +188,10 @@ p { max-width: 70ch; }
 #hud-objective { flex: 1 1 auto; min-width: 0; flex-wrap: wrap; }
 #objective-text { overflow: hidden; text-overflow: ellipsis; }
 #objective-bar { flex-basis: 100%; margin-top: 4px; }
+.hud-cell, .rail {
+  box-shadow: inset 0 1px 0 rgba(185, 224, 255, 0.1), 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+.rail-title { border-bottom: 1px solid var(--line); padding-bottom: 0.7em; margin-bottom: 0.7em; }
 .hud-label { font-size: 0.72em; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-dim); }
 #hud-resources { flex: 0 0 auto; }
 .res { display: inline-flex; align-items: center; gap: 0.35em; font-variant-numeric: tabular-nums; }
