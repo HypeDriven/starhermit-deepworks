@@ -27,7 +27,8 @@
     far: 220,
     camPos: { x: 0, y: -6.0, z: 37.0 },
     camTarget: { x: 0, y: -7.2, z: 0 },
-    spacing: 3.2,            // layer i center at y = -i * spacing
+    spacing: 3.2,            // vertical distance between layer centers
+    firstLayerY: -2.0,       // clear the ground slab, including selection lift
     maxLayers: 6,
     layerWidth: 15,
     layerHeight: 2.1,
@@ -298,7 +299,7 @@
     surface.add(wheel);
 
     // --------------------------------------------------------------- shaft ---
-    var shaftLen = (CONFIG.maxLayers - 1) * CONFIG.spacing + H + 2.5;
+    var shaftLen = -CONFIG.firstLayerY + (CONFIG.maxLayers - 1) * CONFIG.spacing + H + 2.5;
     var shaft = new THREE.Group();
     scene.add(shaft);
     var shaftBack = new THREE.Mesh(
@@ -324,29 +325,32 @@
     for (var li = 0; li < CONFIG.maxLayers; li++) {
       (function (i) {
         var g = new THREE.Group();
-        var baseY = -i * CONFIG.spacing;
+        var baseY = CONFIG.firstLayerY - i * CONFIG.spacing;
         g.position.y = baseY;
         scene.add(g);
+
+        // The sealed block replaces the entire cavern. Its front and side
+        // faces share the shell's depth, so drawing both causes z-fighting.
+        var interior = new THREE.Group();
+        g.add(interior);
 
         var ceil = new THREE.Mesh(slabGeo, rockMat);
         ceil.position.y = H / 2 + 0.225;
         ceil.castShadow = true;
         ceil.receiveShadow = true;
-        g.add(ceil);
+        interior.add(ceil);
         var floor = new THREE.Mesh(slabGeo, rockMat);
         floor.position.y = -H / 2 - 0.225;
         floor.receiveShadow = true;
-        g.add(floor);
+        interior.add(floor);
         var capL = new THREE.Mesh(capGeo, rockMat);
         capL.position.x = -(W / 2 - 0.25);
-        g.add(capL);
+        interior.add(capL);
         var capR = new THREE.Mesh(capGeo, rockMat);
         capR.position.x = W / 2 - 0.25;
-        g.add(capR);
+        interior.add(capR);
 
         // interior (visible when unlocked)
-        var interior = new THREE.Group();
-        g.add(interior);
         var backL = new THREE.Mesh(backGeo, rockDarkMat);
         backL.position.set(-(CONFIG.shaftWidth / 2 + halfBack / 2), 0, -D / 2 + 0.06);
         backL.receiveShadow = true;
@@ -733,7 +737,7 @@
       liftPhase = (liftPhase + (dt * 1000) / cycleMs) % 1;
       var deepIdx = deepestWorkingLayer(state);
       var surfaceStop = CONFIG.surfaceY + 0.15;
-      var targetDepth = deepIdx >= 0 ? -deepIdx * CONFIG.spacing : surfaceStop;
+      var targetDepth = deepIdx >= 0 ? layers[deepIdx].baseY : surfaceStop;
       springStep(liftDepth, targetDepth, dt, 2.0);
       var tri = liftPhase < 0.5 ? liftPhase * 2 : 2 - liftPhase * 2;
       var eased = smooth01(tri);
@@ -849,7 +853,7 @@
     function pulse(eventName) {
       if (disposed) return;
       var deepest = lastState ? Math.max(0, deepestWorkingLayer(lastState)) : 0;
-      var deepY = -deepest * CONFIG.spacing;
+      var deepY = layers[deepest].baseY;
       switch (eventName) {
         case 'coin':
           spawnBurst(2.5, CONFIG.surfaceY + 1.0, 0.6, 14, theme.accent, 2.2, 0.7, 0.8);
@@ -866,7 +870,7 @@
         case 'complete':
           flashT = 1;
           shakeAmp = Math.max(shakeAmp, CONFIG.shakeMax);
-          spawnBurst(0, -CONFIG.spacing, 1.5, 150, theme.seamHot, 6.0, 1.5, 6.0);
+          spawnBurst(0, layers[1].baseY, 1.5, 150, theme.seamHot, 6.0, 1.5, 6.0);
           spawnBurst(0, CONFIG.surfaceY + 1.0, 1.0, 60, theme.accent, 4.5, 1.3, 3.0);
           break;
         case 'error':
@@ -927,7 +931,7 @@
       // vertical: surface slab down to the deepest layer that exists in this
       // mine (unlockable ones included), not the theoretical maximum.
       var layerCount = lastState && lastState.layers ? lastState.layers.length : CONFIG.maxLayers;
-      var span = CONFIG.surfaceY + (layerCount - 1) * CONFIG.spacing + CONFIG.layerHeight + 1.5;
+      var span = CONFIG.surfaceY - CONFIG.firstLayerY + (layerCount - 1) * CONFIG.spacing + CONFIG.layerHeight + 1.5;
       var centreY = CONFIG.surfaceY - span / 2 + 0.75;
       var needZv = (span / 2) / tanHalf;
       frameDist = Math.max(1, needZ / CONFIG.camPos.z, needZv / CONFIG.camPos.z);
