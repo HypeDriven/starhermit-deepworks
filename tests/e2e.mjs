@@ -58,7 +58,7 @@ async function runPass(browser, tag, viewport, hasTouch) {
   const errors = [];
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
   page.on('console', (m) => {
-    if (m.type() === 'error' && !browserNoise.test(m.text())) errors.push(`console: ${m.text()}`);
+    if ((m.type() === 'error' || m.type() === 'warning') && !browserNoise.test(m.text())) errors.push(`console ${m.type()}: ${m.text()}`);
   });
 
   const step = async (name, fn) => {
@@ -110,6 +110,49 @@ async function runPass(browser, tag, viewport, hasTouch) {
       if (!(await rm.isChecked())) throw new Error('reduced-motion toggle did not stick');
       await rm.uncheck();
       await page.screenshot({ path: SHOT('settings', tag) });
+      await page.locator('#settings-panel .back-btn').click();
+      await screenIs('title');
+    });
+
+    await step('Graphics settings: presets, override, persistence', async () => {
+      const preset = () => page.evaluate(() => document.body.dataset.gfxPreset);
+      const summary = () => page.textContent('#gfx-summary');
+      await page.click('#btn-settings');
+      await page.waitForSelector('#screen-settings.active');
+      await page.waitForSelector('#gfx-preset', { state: 'visible' });
+      const autoLabel = await page.locator('#gfx-preset option[value="auto"]').textContent();
+      if (!/low/i.test(autoLabel)) throw new Error(`software GPU should detect Low, got "${autoLabel}"`);
+      if ((await preset()) !== 'low') throw new Error('Auto did not resolve to low on a software GPU');
+      await page.selectOption('#gfx-preset', 'high');
+      await page.waitForFunction(() => document.body.dataset.gfxPreset === 'high');
+      if (!/bloom/.test(await summary())) throw new Error('High summary should list bloom');
+      // per-effect override: bloom off
+      await page.selectOption('#gfx-cat-bloom', 'off');
+      await page.waitForFunction(() => !/bloom/.test(document.getElementById('gfx-summary').textContent));
+      // render scale slider + frame-rate readout toggle
+      await page.locator('#gfx-scale').fill('75');
+      if ((await page.textContent('#gfx-scale-val')).trim() !== '75%') throw new Error('render scale label did not update');
+      if (hasTouch) await page.locator('#gfx-show-fps').tap(); else await page.locator('#gfx-show-fps').click();
+      await page.waitForSelector('#gfx-fps', { state: 'visible' });
+      await page.screenshot({ path: SHOT('graphics', tag) });
+      // survives a reload
+      await page.reload({ waitUntil: 'load' });
+      await page.waitForSelector('#screen-title.active', { timeout: 10000 });
+      if ((await preset()) !== 'high') throw new Error('preset did not persist across reload');
+      await page.click('#btn-settings');
+      await page.waitForSelector('#gfx-preset', { state: 'visible' });
+      if ((await page.inputValue('#gfx-cat-bloom')) !== 'off') throw new Error('bloom override did not persist');
+      if ((await page.inputValue('#gfx-scale')) !== '75') throw new Error('render scale did not persist');
+      // choosing a preset clears overrides; Low then back to Auto for the rest of the run
+      await page.selectOption('#gfx-preset', 'low');
+      await page.waitForFunction(() => document.body.dataset.gfxPreset === 'low');
+      if ((await page.inputValue('#gfx-cat-bloom')) !== 'preset') throw new Error('preset change did not clear overrides');
+      await page.selectOption('#gfx-preset', 'ultra');
+      await page.waitForFunction(() => document.body.dataset.gfxPreset === 'ultra');
+      await page.waitForTimeout(600); // a few Ultra frames: no console output allowed
+      await page.selectOption('#gfx-preset', 'auto');
+      if (hasTouch) await page.locator('#gfx-show-fps').tap(); else await page.locator('#gfx-show-fps').click();
+      await page.waitForSelector('#gfx-fps', { state: 'hidden' });
       await page.locator('#settings-panel .back-btn').click();
       await screenIs('title');
     });

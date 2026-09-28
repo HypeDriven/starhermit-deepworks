@@ -36,7 +36,8 @@
 
   var DEFAULT_SETTINGS = {
     volMusic: 0.5, volEffects: 0.8, volAmbience: 0.4, volVoice: 0.6, muted: false,
-    captions: true, quality: 'high', theme: 'emberdeep', reducedMotion: false,
+    captions: true, theme: 'emberdeep', reducedMotion: false,
+    gfx: { preset: 'auto', render_scale: 1, adaptive: true, show_fps: false },
     cameraSway: true, holdRepeat: false, leftHanded: false, haptics: true,
     highContrast: false, largeText: false, palette: 'default', timingAssist: false,
     telemetry: false,
@@ -44,11 +45,32 @@
     pad: { confirm: 0, cancel: 1, pause: 9, up: 12, down: 13 }
   };
 
+  // Settings from before the Graphics panel stored a coarse `quality` tier;
+  // carry an explicit Low/Medium choice over once, otherwise start on Auto.
+  function withSettings(saved) {
+    var s = Object.assign({}, DEFAULT_SETTINGS, saved || {});
+    if (!saved || !saved.gfx) {
+      s.gfx = Object.assign({}, DEFAULT_SETTINGS.gfx);
+      if (saved && saved.quality === 'low') s.gfx.preset = 'low';
+      else if (saved && saved.quality === 'medium') s.gfx.preset = 'balanced';
+    } else {
+      s.gfx = Object.assign({}, DEFAULT_SETTINGS.gfx, saved.gfx);
+    }
+    delete s.quality;
+    return s;
+  }
+  function isMobileDevice() {
+    try {
+      var coarse = matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches;
+      return coarse || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+    } catch (e) { return false; }
+  }
+
   // ------------------------------------------------------------------ boot ---
   function boot() {
     P.init();
     app.profile = S.loadProfile();
-    app.settings = Object.assign({}, DEFAULT_SETTINGS, app.profile.settings || {});
+    app.settings = withSettings(app.profile.settings);
     app.profile.settings = app.settings;
     applySettings();
 
@@ -65,7 +87,7 @@
         var remote = remoteRaw ? S.loadProfileRaw(remoteRaw) : null;
         if (remote) {
           app.profile = remote;
-          app.settings = Object.assign({}, DEFAULT_SETTINGS, remote.settings || {});
+          app.settings = withSettings(remote.settings);
           app.profile.settings = app.settings;
           S.saveProfile(app.profile); // local cache mirrors the remote doc
           applySettings();
@@ -82,8 +104,9 @@
       app.renderer = DWRender.create(document.getElementById('scene-host'), {
         onSelect: onLayerPicked,
         theme: currentTheme(),
-        reducedMotion: app.settings.reducedMotion,
-        quality: app.settings.quality
+        reducedMotion: app.settings.reducedMotion || !app.settings.cameraSway,
+        graphics: app.settings.gfx,
+        mobile: isMobileDevice()
       });
     } catch (e) { app.renderer = null; }
     if (!app.renderer) {
@@ -166,7 +189,7 @@
       A.setMuted(!!s.muted);
     }
     if (app.renderer) {
-      app.renderer.setQuality(s.quality);
+      app.renderer.setGraphics(s.gfx);
       app.renderer.setReducedMotion(!!s.reducedMotion || !s.cameraSway);
       app.renderer.setTheme(currentTheme());
     }
@@ -766,6 +789,15 @@
     settingsChanged: function () {
       applySettings();
       P.track('settings_change', {});
+    },
+    // Graphics panel: apply live (no theme rebuild) and persist with the profile.
+    graphicsChanged: function () {
+      if (app.renderer) app.renderer.setGraphics(app.settings.gfx);
+      app.profile.settings = app.settings;
+      S.saveProfile(app.profile);
+    },
+    graphicsInfo: function () {
+      return app.renderer ? app.renderer.graphicsInfo() : null;
     },
     setDisplayName: function (name) {
       app.profile.displayName = name.slice(0, 24);

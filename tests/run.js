@@ -441,5 +441,64 @@ section('lift presentation: docking, loading, and cargo');
   eq(planLiftTrip(st), null, 'disabled lift stays idle');
 }
 
+// ------------------------------------------------------ graphics model ---
+section('graphics quality model (js/gfx.js)');
+{
+  const G = require('../js/gfx.js');
+  eq(G.detectPreset('ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero)), SwiftShader driver)'), 'low', 'SwiftShader → low');
+  eq(G.detectPreset('llvmpipe (LLVM 15.0.7, 256 bits)'), 'low', 'llvmpipe → low');
+  eq(G.detectPreset('ANGLE (NVIDIA, NVIDIA GeForce RTX 3070 Direct3D11 vs_5_0 ps_5_0)'), 'high', 'GeForce → high');
+  eq(G.detectPreset('Apple M2'), 'high', 'Apple M → high');
+  eq(G.detectPreset('ANGLE (Intel, Intel(R) UHD Graphics 620 Direct3D11)'), 'balanced', 'Intel iGPU → balanced');
+  eq(G.detectPreset('Adreno (TM) 650'), 'balanced', 'mobile GPU → balanced');
+  eq(G.detectPreset(''), 'balanced', 'unknown GPU → balanced');
+  eq(G.detectPreset('Apple M2', true), 'balanced', 'touch/mobile caps Auto at balanced');
+
+  let r = G.resolve({}, 'low');
+  eq(r.preset, 'low', 'empty settings use the detected preset');
+  eq(r.auto, true, 'empty settings are Auto');
+  eq(r.post, false, 'Low draws without a post chain');
+  eq(r.shadows, 'off', 'Low has no shadows');
+  eq(r.adaptive, true, 'adaptive defaults on');
+  eq(r.showFps, false, 'fps readout defaults off');
+  r = G.resolve({ preset: 'high' }, 'low');
+  eq(r.auto, false, 'explicit preset is not Auto');
+  eq(r.ao, 'on', 'High preset tier for ao');
+  eq(r.post, true, 'High needs the post chain');
+  r = G.resolve({ preset: 'high', bloom: 'off', ao: 'off', grade: 'off', antialias: 'msaa' }, 'low');
+  eq(r.bloom, 'off', 'override beats the preset');
+  eq(r.post, false, 'no post chain when every post effect is overridden off');
+  eq(G.resolve({ preset: 'high', bloom: 'sparkly' }, 'low').bloom, 'on', 'invalid override falls back to the preset tier');
+  eq(G.resolve({ preset: 'bogus' }, 'balanced').preset, 'balanced', 'unknown preset → Auto');
+  eq(G.resolve({ render_scale: 5 }, 'low').renderScale, 2, 'render scale clamps to 200%');
+  eq(G.resolve({ render_scale: 0.1 }, 'low').renderScale, 0.5, 'render scale clamps to 50%');
+  eq(G.resolve({ preset: 'ultra', render_scale: 1 }, 'low').scale, 1.25, 'Ultra multiplies the render scale');
+  eq(G.pixelRatio(G.resolve({ preset: 'low' }), 3), 1, 'Low caps the pixel ratio at 1');
+  eq(G.pixelRatio(G.resolve({ preset: 'balanced' }), 3), 1.5, 'Balanced caps the pixel ratio at 1.5');
+  eq(G.pixelRatio(G.resolve({ preset: 'high' }), 2, 0.6), 1.2, 'adaptive scale multiplies the pixel ratio');
+
+  const cleared = G.choosePreset({ preset: 'high', bloom: 'off', shadows: 'low', render_scale: 1.5, show_fps: true }, 'low');
+  eq(cleared.preset, 'low', 'choosePreset sets the preset');
+  eq(cleared.bloom, undefined, 'choosePreset clears overrides');
+  eq(cleared.shadows, undefined, 'choosePreset clears every override');
+  eq(cleared.render_scale, 1.5, 'choosePreset keeps render scale');
+  eq(cleared.show_fps, true, 'choosePreset keeps toggles');
+  eq(G.choosePreset({}, 'auto').preset, 'auto', 'choosePreset accepts Auto');
+  eq(G.presetTier('balanced', 'shadows'), 'low', 'presetTier reports the preset row');
+
+  ok(/no shadows/.test(G.describe(G.resolve({}, 'low'), [800, 600])), 'describe: Low has no shadows');
+  ok(/800×600 px/.test(G.describe(G.resolve({}, 'low'), [800, 600])), 'describe: pixel size');
+  ok(/2048² shadows/.test(G.describe(G.resolve({ preset: 'high' }))), 'describe: shadow map size');
+
+  const keys = Object.keys(G.CATEGORIES).map((c) => 'c_' + c).concat(['graphics', 'quality', 'auto', 'from_preset', 'render_scale', 'adaptive', 'show_fps', 'post_unavailable', 'p_low', 'p_balanced', 'p_high', 'p_ultra']);
+  ['en-US', 'en-GB', 'es-419', 'es-ES', 'de-DE', 'fr-FR', 'fr-CA', 'pt-BR', 'it-IT'].forEach((loc) => {
+    ok(G.LOCALES.includes(loc), 'graphics strings ship ' + loc);
+    keys.forEach((k) => ok(G.t(loc, k) !== k, `${loc} has ${k}`));
+  });
+  eq(G.pickLocale('de'), 'de-DE', 'base language falls back to its locale');
+  eq(G.pickLocale('es-MX'), 'es-419', 'Latin-American Spanish');
+  eq(G.pickLocale('ja-JP'), 'en-US', 'unsupported language → en-US');
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

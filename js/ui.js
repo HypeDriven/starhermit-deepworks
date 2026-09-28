@@ -9,6 +9,7 @@
   'use strict';
   var R = root.DWRules;
   var C = root.DWContent;
+  var GFX = root.DWGfx;
 
   var H = null;              // handlers
   var navStack = [];
@@ -532,8 +533,9 @@
     toggle(ga, 'Mute all', 'muted');
     toggle(ga, 'Text captions for sounds', 'captions');
 
-    var gg = group('Graphics');
-    select(gg, 'Quality tier', 'quality', [['low', 'Low (30 fps target)'], ['medium', 'Medium'], ['high', 'High (60 fps target)']]);
+    var gg = group(GFX.t(GFX.pickLocale(navigator.language), 'graphics'));
+    gg.id = 'gfx-section';
+    buildGraphics(gg, s);
     select(gg, 'Mine theme', 'theme', C.THEMES.map(function (t) { return [t.id, t.name]; }));
     toggle(gg, 'Reduced motion', 'reducedMotion');
     toggle(gg, 'Camera sway', 'cameraSway');
@@ -569,6 +571,110 @@
       if (inPause) H.resume(); else back();
     }));
     show('settings');
+  }
+
+  // Graphics section: quality preset, render scale, per-effect overrides,
+  // adaptive resolution, frame-rate readout and a cost summary. Strings are
+  // localized from navigator.language (js/gfx.js STRINGS).
+  function buildGraphics(host, s) {
+    var loc = GFX.pickLocale(navigator.language);
+    var T = function (k, v) { return GFX.t(loc, k, v); };
+    var box = el('div', 'gfx-box');
+    host.appendChild(box);
+    var summary, note;
+
+    function commit() { H.graphicsChanged(); updateSummary(); }
+    function updateSummary() {
+      var info = H.graphicsInfo && H.graphicsInfo();
+      if (!summary) return;
+      if (!info) { summary.textContent = T('post_unavailable'); return; }
+      summary.textContent = (info.gpu || T('unknown_gpu')) + ' · ' + GFX.describe(info.resolved, info.pixels, loc);
+      note.hidden = !(info.resolved.post && info.postError);
+    }
+    function row(label, id, control, extra) {
+      var r = el('div', 'set-row');
+      var lab = el('label', null, label);
+      lab.htmlFor = id;
+      control.id = id;
+      control.setAttribute('aria-label', label);
+      r.appendChild(lab); r.appendChild(control);
+      if (extra) r.appendChild(extra);
+      box.appendChild(r);
+      return control;
+    }
+    function selectEl(options, value) {
+      var sel = el('select');
+      options.forEach(function (o) {
+        var op = el('option', null, o[1]); op.value = o[0];
+        if (o[0] === value) op.selected = true;
+        sel.appendChild(op);
+      });
+      return sel;
+    }
+    function checkEl(v) { var c = el('input'); c.type = 'checkbox'; c.checked = !!v; return c; }
+
+    function render() {
+      box.innerHTML = '';
+      var gs = s.gfx || (s.gfx = { preset: 'auto' });
+      var info = H.graphicsInfo && H.graphicsInfo();
+      var detected = info ? info.detected : 'balanced';
+      var r = GFX.resolve(gs, detected);
+
+      var presetSel = row(T('quality'), 'gfx-preset', selectEl(
+        [['auto', T('auto', { t: T('p_' + detected) })]].concat(GFX.PRESETS.map(function (p) { return [p, T('p_' + p)]; })),
+        r.auto ? 'auto' : r.preset));
+      presetSel.addEventListener('change', function () {
+        s.gfx = GFX.choosePreset(s.gfx, presetSel.value); // clears overrides
+        commit();
+        render();
+        var again = $('gfx-preset'); if (again) again.focus();
+      });
+
+      var scale = el('input');
+      scale.type = 'range'; scale.min = 50; scale.max = 200; scale.step = 5;
+      scale.value = Math.round(r.renderScale * 100);
+      var val = el('span', 'gfx-val', scale.value + '%');
+      val.id = 'gfx-scale-val';
+      row(T('render_scale'), 'gfx-scale', scale, val).parentNode.classList.add('gfx-range');
+      scale.addEventListener('input', function () {
+        val.textContent = scale.value + '%';
+        s.gfx.render_scale = Number(scale.value) / 100;
+        commit();
+      });
+
+      GFX.CATEGORY_ORDER.forEach(function (cat) {
+        var own = GFX.presetTier(r.preset, cat);
+        var opts = [['preset', T('from_preset', { t: T('t_' + own) })]].concat(
+          GFX.CATEGORIES[cat].map(function (tier) { return [tier, T('t_' + tier)]; }));
+        var sel = row(T('c_' + cat), 'gfx-cat-' + cat, selectEl(opts, gs[cat] && GFX.CATEGORIES[cat].indexOf(gs[cat]) >= 0 ? gs[cat] : 'preset'));
+        sel.dataset.gfxCat = cat;
+        sel.addEventListener('change', function () {
+          if (sel.value === 'preset') delete s.gfx[cat]; else s.gfx[cat] = sel.value;
+          commit();
+        });
+      });
+
+      var adaptive = row(T('adaptive'), 'gfx-adaptive', checkEl(r.adaptive));
+      adaptive.addEventListener('change', function () { s.gfx.adaptive = adaptive.checked; commit(); });
+      var fps = row(T('show_fps'), 'gfx-show-fps', checkEl(r.showFps));
+      fps.addEventListener('change', function () { s.gfx.show_fps = fps.checked; commit(); });
+
+      summary = el('p', 'subtle gfx-summary');
+      summary.id = 'gfx-summary';
+      summary.setAttribute('aria-live', 'polite');
+      box.appendChild(summary);
+      note = el('p', 'subtle gfx-note', T('post_unavailable'));
+      note.id = 'gfx-note';
+      note.hidden = true;
+      box.appendChild(note);
+      updateSummary();
+    }
+    render();
+    // adaptive resolution changes the pixel count while the panel is open
+    var timer = setInterval(function () {
+      if (!document.body.contains(box)) { clearInterval(timer); return; }
+      updateSummary();
+    }, 1000);
   }
 
   // -------------------------------------------------------------- results ---

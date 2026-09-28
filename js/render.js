@@ -11,19 +11,27 @@
  *
  * Scene: a vertical mine cross-section framed like a tabletop diorama.
  * No external assets; the few textures (sky gradient, sealed-rock cracks)
- * are generated on a canvas at runtime. No post-processing.
+ * are generated on a canvas at runtime.
+ *
+ * Graphics quality (`setGraphics`, model in js/gfx.js): shadows, SSAO,
+ * HDR bloom, a tone-map + colour-grade output pass, FXAA/SMAA/MSAA,
+ * RoomEnvironment reflections, surface detail (bump-mapped rock, clearcoat
+ * crystals, helmet lamps), particle density with drifting dust motes,
+ * render scale and adaptive resolution. Post-processing uses the r128
+ * examples/js passes vendored in vendor/three-r128-addons/.
  */
 (function (root) {
   'use strict';
 
   var THREE = root.THREE;
   var RULES = root.DWRules;
+  var GFX = root.DWGfx;
 
   // -------------------------------------------------------------- config ---
   var CONFIG = {
     seed: 0x5eed1234, // fixed decoration seed (stable across loads)
     fov: 30,
-    near: 0.1,
+    near: 1.0,               // the nearest geometry is ~25 units away; keeps depth precise for SSAO
     far: 220,
     camPos: { x: 0, y: -6.0, z: 37.0 },
     camTarget: { x: 0, y: -7.2, z: 0 },
@@ -51,10 +59,9 @@
     anchorZ: 1.2,
     workerSlots: 8,
     crystalMax: 80,          // instances allocated per layer seam
-    crystalCounts: { low: 24, medium: 48, high: 80 },
     particleMax: 512,        // pooled cosmetic particles
-    particleMult: { low: 0.35, medium: 0.7, high: 1.0 },
-    pixelRatioCap: { low: 1, medium: 1.5, high: 2 },
+    dustMax: 36,             // drifting motes allocated per layer
+    exposure: 1.15,
     fogNear: 62,
     fogFar: 130
   };
@@ -161,7 +168,8 @@
     var onSelect = typeof opts.onSelect === 'function' ? opts.onSelect : function () {};
     var theme = opts.theme || DEFAULT_THEME;
     var reducedMotion = !!opts.reducedMotion;
-    var quality = (opts.quality === 'low' || opts.quality === 'medium') ? opts.quality : 'high';
+    var gfxSaved = opts.graphics || {};
+    var g = GFX.resolve(gfxSaved, 'low'); // replaced once the GPU is known
 
     var renderer;
     try {
@@ -173,10 +181,21 @@
     if (!renderer.getContext()) return null;
 
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.15;
+    renderer.toneMappingExposure = CONFIG.exposure;
     renderer.outputEncoding = THREE.sRGBEncoding;
-    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.enabled = false;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    // GPU name (unmasked when the browser exposes it) picks the Auto preset.
+    var gpuName = '';
+    try {
+      var gl = renderer.getContext();
+      var dbg = gl.getExtension('WEBGL_debug_renderer_info');
+      gpuName = String(dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER) || '');
+    } catch (e) { gpuName = ''; }
+    var mobile = !!opts.mobile;
+    var detected = GFX.detectPreset(gpuName, mobile);
+    g = GFX.resolve(gfxSaved, detected);
 
     var canvas = renderer.domElement;
     canvas.style.position = 'absolute';
@@ -252,8 +271,18 @@
         }
         g.stroke();
       }
+      // Fine grain so flat faces read as stone (and give the bump map relief).
+      var img = g.getImageData(0, 0, 256, 128);
+      for (var px = 0; px < img.data.length; px += 4) {
+        var n = (rnd() - 0.5) * 14;
+        img.data[px] = Math.max(0, Math.min(255, img.data[px] + n));
+        img.data[px + 1] = Math.max(0, Math.min(255, img.data[px + 1] + n));
+        img.data[px + 2] = Math.max(0, Math.min(255, img.data[px + 2] + n));
+      }
+      g.putImageData(img, 0, 0);
       var tex = new THREE.CanvasTexture(c);
       tex.encoding = THREE.sRGBEncoding;
+      tex.anisotropy = 4;
       tex.wrapS = THREE.RepeatWrapping;
       tex.wrapT = THREE.RepeatWrapping;
       tex.repeat.set(3, 1);
@@ -301,17 +330,24 @@
     scene.add(rimLight);
 
     // ----------------------------------------------------------- materials ---
-    var rockMat = new THREE.MeshStandardMaterial({ color: 0xffffff, map: rockTex, roughness: 0.95, metalness: 0.02 });
-    var rockDarkMat = new THREE.MeshStandardMaterial({ color: pigment(theme.rockDark), emissive: pigment(theme.rockDark), emissiveIntensity: 0.5, roughness: 1.0, metalness: 0.0 });
-    var lockedMat = new THREE.MeshStandardMaterial({ color: 0xffffff, map: crackTex, roughness: 1.0, metalness: 0.0 });
-    var liftMat = new THREE.MeshStandardMaterial({ color: pigment(theme.lift), roughness: 0.45, metalness: 0.6 });
-    var depotMat = new THREE.MeshStandardMaterial({ color: pigment(theme.accent), roughness: 0.85, metalness: 0.05 });
-    var oreMat = new THREE.MeshStandardMaterial({ color: pigment(theme.seam), emissive: pigment(theme.seam), emissiveIntensity: 0.9, roughness: 0.4, metalness: 0.1 });
-    var flareMat = new THREE.MeshStandardMaterial({ color: pigment(theme.seamHot), emissive: pigment(theme.seamHot), emissiveIntensity: 1.6, roughness: 0.3, metalness: 0.1 });
+    var rockMat = new THREE.MeshStandardMaterial({ color: 0xffffff, map: rockTex, roughness: 0.95, metalness: 0.02, bumpScale: 0.035, envMapIntensity: 0.18 });
+    var rockDarkMat = new THREE.MeshStandardMaterial({ color: pigment(theme.rockDark), emissive: pigment(theme.rockDark), emissiveIntensity: 0.5, roughness: 1.0, metalness: 0.0, envMapIntensity: 0.1 });
+    var lockedMat = new THREE.MeshStandardMaterial({ color: 0xffffff, map: crackTex, roughness: 1.0, metalness: 0.0, bumpScale: 0.05, envMapIntensity: 0.15 });
+    var liftMat = new THREE.MeshStandardMaterial({ color: pigment(theme.lift), roughness: 0.32, metalness: 0.75, envMapIntensity: 0.9 });
+    var depotMat = new THREE.MeshStandardMaterial({ color: pigment(theme.accent), roughness: 0.8, metalness: 0.05, envMapIntensity: 0.3 });
+    var oreMat = new THREE.MeshStandardMaterial({ color: pigment(theme.seam), emissive: pigment(theme.seam), emissiveIntensity: 0.9, roughness: 0.4, metalness: 0.1, envMapIntensity: 0.5 });
+    var flareMat = new THREE.MeshStandardMaterial({ color: pigment(theme.seamHot), emissive: pigment(theme.seamHot), emissiveIntensity: 1.6, roughness: 0.3, metalness: 0.1, envMapIntensity: 0.5 });
     var rimMat = new THREE.LineBasicMaterial({ color: pigment(theme.accent), transparent: true, opacity: 0.9 });
     var ringMat = new THREE.MeshBasicMaterial({ color: pigment(theme.accent), transparent: true, opacity: 0.8, side: THREE.DoubleSide });
     var hitMat = new THREE.MeshBasicMaterial({ visible: false }); // raycast-only
-    var beamMat = new THREE.MeshStandardMaterial({ color: pigment(theme.lift), roughness: 0.6, metalness: 0.4 });
+    var beamMat = new THREE.MeshStandardMaterial({ color: pigment(theme.lift), roughness: 0.55, metalness: 0.45, envMapIntensity: 0.3 });
+    // Detail tier: warm helmet lamps on every worker (they bloom when bloom is on).
+    var helmetMat = new THREE.MeshStandardMaterial({ color: 0xfff1d0, emissive: 0xffe2a8, emissiveIntensity: 2.4, roughness: 0.4 });
+    // Drifting dust motes, lit by the seam glow (particle tier).
+    var dustMat = new THREE.PointsMaterial({
+      size: 0.16, map: glowTex, color: pigment(theme.seamHot), transparent: true, opacity: 0.55,
+      blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true
+    });
 
     // ---------------------------------------------------------- geometries ---
     var W = CONFIG.layerWidth, H = CONFIG.layerHeight, D = CONFIG.layerDepth;
@@ -324,6 +360,8 @@
     crystalGeo.scale(0.55, 1.7, 0.55); // elongated shard
     var workerGeo = new THREE.ConeGeometry(0.16, 0.52, 6);
     workerGeo.translate(0, 0.26, 0); // base at y=0
+    var helmetGeo = new THREE.SphereGeometry(0.075, 8, 6);
+    helmetGeo.translate(0.05, 0.5, 0.1); // lamp on the brow, facing the viewer
     var binFrameGeo = new THREE.BoxGeometry(0.85, CONFIG.binHeight + 0.25, 0.55);
     var binFillGeo = new THREE.BoxGeometry(0.58, 1, 0.36);
     binFillGeo.translate(0, 0.5, 0); // grows upward from its base
@@ -430,10 +468,17 @@
         interior.add(backR2);
 
         // glowing mineral seam: instanced elongated crystals on the back wall
-        var seamMat = new THREE.MeshStandardMaterial({
+        var seamPlain = new THREE.MeshStandardMaterial({
           color: pigment(theme.seam), emissive: pigment(theme.seam), emissiveIntensity: 0.5,
           roughness: 0.22, metalness: 0.25
         });
+        // Detailed seams: clearcoated gem faces that catch the environment.
+        var seamGloss = new THREE.MeshPhysicalMaterial({
+          color: pigment(theme.seam), emissive: pigment(theme.seam), emissiveIntensity: 0.5,
+          roughness: 0.3, metalness: 0.1, clearcoat: 0.6, clearcoatRoughness: 0.12,
+          envMapIntensity: 0.35
+        });
+        var seamMat = seamPlain;
         var crystals = new THREE.InstancedMesh(crystalGeo, seamMat, CONFIG.crystalMax);
         crystals.frustumCulled = false; // instances spread beyond base bounds
         crystals.castShadow = true;
@@ -456,7 +501,7 @@
           crystals.setMatrixAt(ci, tmpM);
           crystals.setColorAt(ci, new THREE.Color().setHSL(0.06 + (ci % 5) * 0.025, 0.15, 0.58 + (ci % 4) * 0.12));
         }
-        crystals.count = CONFIG.crystalCounts[quality];
+        crystals.count = GFX.CRYSTALS.plain;
         crystals.instanceMatrix.needsUpdate = true;
         interior.add(crystals);
 
@@ -494,6 +539,28 @@
           offsets.push({ x: wx, z: 0.3 + rnd() * 0.9, phase: rnd() * Math.PI * 2 });
         }
         interior.add(workers);
+        var helmets = new THREE.InstancedMesh(helmetGeo, helmetMat, CONFIG.workerSlots);
+        helmets.frustumCulled = false;
+        helmets.count = 0;
+        helmets.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        helmets.visible = false;
+        interior.add(helmets);
+
+        // dust motes: deterministic drift paths inside the cavern
+        var dustPos = new Float32Array(CONFIG.dustMax * 3);
+        var dustSeed = [];
+        for (var di = 0; di < CONFIG.dustMax; di++) {
+          dustSeed.push({
+            x: (rnd() - 0.5) * (W - 1.5), z: -D / 2 + 0.4 + rnd() * (D - 0.6),
+            y: rnd(), speed: 0.04 + rnd() * 0.08, phase: rnd() * Math.PI * 2, amp: 0.2 + rnd() * 0.5
+          });
+        }
+        var dustGeo = new THREE.BufferGeometry();
+        dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3).setUsage(THREE.DynamicDrawUsage));
+        dustGeo.setDrawRange(0, 0);
+        var dust = new THREE.Points(dustGeo, dustMat);
+        dust.frustumCulled = false;
+        interior.add(dust);
 
         // locked look: one dark sealed block with faint crack texture
         var sealed = new THREE.Mesh(lockedGeo, lockedMat);
@@ -519,8 +586,14 @@
           interior: interior,
           sealed: sealed,
           seamMat: seamMat,
+          seamPlain: seamPlain,
+          seamGloss: seamGloss,
           crystals: crystals,
           workers: workers,
+          helmets: helmets,
+          dust: dust,
+          dustPos: dustPos,
+          dustSeed: dustSeed,
           workerOffsets: offsets,
           binFill: binFill,
           binFillMat: binFillMat,
@@ -598,7 +671,7 @@
     pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3).setUsage(THREE.DynamicDrawUsage));
     pGeo.setAttribute('color', new THREE.BufferAttribute(pCol, 3).setUsage(THREE.DynamicDrawUsage));
     var pMat = new THREE.PointsMaterial({
-      size: 0.22, vertexColors: true, transparent: true,
+      size: 0.26, map: glowTex, vertexColors: true, transparent: true,
       blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true
     });
     var points = new THREE.Points(pGeo, pMat);
@@ -607,7 +680,7 @@
     var pCursor = 0;
 
     function spawnBurst(x, y, z, count, hex, speed, life, spread) {
-      var mult = CONFIG.particleMult[quality] * (reducedMotion ? 0.35 : 1);
+      var mult = GFX.PARTICLE_MULT[g.particles] * (reducedMotion ? 0.35 : 1);
       var n = Math.max(1, Math.round(count * mult));
       var r = ((hex >> 16) & 255) / 255;
       var g2 = ((hex >> 8) & 255) / 255;
@@ -736,6 +809,9 @@
         rec.interior.visible = unlocked;
         rec.sealed.visible = !unlocked;
         rec.lamp.visible = unlocked;
+        // lamp shimmer: a slow, small flicker (steady under reduced motion)
+        rec.lamp.intensity = reducedMotion ? 1.2
+          : 1.2 + 0.08 * Math.sin(time * 7.3 + i2 * 2.1) + 0.05 * Math.sin(time * 13.1 + i2);
 
         // selection lift (spring; never cumulative lerp)
         springStep(rec.selLift, selectedLayer === i2 ? CONFIG.selectLift : 0, dt, CONFIG.springW);
@@ -774,13 +850,34 @@
         var wc = Math.min(CONFIG.workerSlots, Math.max(0, L.workers | 0));
         rec.workers.count = wc;
         var bobAmp = reducedMotion ? 0 : 0.06;
+        var lamps = rec.helmets.visible;
+        rec.helmets.count = lamps ? wc : 0;
         for (var w2 = 0; w2 < wc; w2++) {
           var off = rec.workerOffsets[w2];
           tmpV3.set(off.x, floorY + bobAmp * Math.sin(time * 3 + off.phase), off.z);
           tmpM4.makeTranslation(tmpV3.x, tmpV3.y, tmpV3.z);
           rec.workers.setMatrixAt(w2, tmpM4);
+          if (lamps) rec.helmets.setMatrixAt(w2, tmpM4);
         }
-        if (wc > 0) rec.workers.instanceMatrix.needsUpdate = true;
+        if (wc > 0) {
+          rec.workers.instanceMatrix.needsUpdate = true;
+          if (lamps) rec.helmets.instanceMatrix.needsUpdate = true;
+        }
+
+        // dust motes rise slowly through the cavern and wrap (frozen with reduced motion)
+        var dn = rec.dust.geometry.drawRange.count;
+        if (dn > 0 && (!reducedMotion || !rec.dustPlaced)) {
+          var dtime = reducedMotion ? 0 : time;
+          for (var d2 = 0; d2 < dn; d2++) {
+            var ds = rec.dustSeed[d2];
+            var dy = (ds.y + dtime * ds.speed) % 1;
+            rec.dustPos[d2 * 3] = ds.x + ds.amp * Math.sin(dtime * 0.35 + ds.phase);
+            rec.dustPos[d2 * 3 + 1] = -H / 2 + 0.15 + dy * (H - 0.3);
+            rec.dustPos[d2 * 3 + 2] = ds.z + 0.15 * Math.sin(dtime * 0.5 + ds.phase * 1.7);
+          }
+          rec.dust.geometry.attributes.position.needsUpdate = true;
+          rec.dustPlaced = true;
+        }
       }
 
       // selection rim + grounded ring follow the selected layer
@@ -866,7 +963,7 @@
       }
 
       updateParticles(dt);
-      renderer.render(scene, camera);
+      renderFrame();
     }
 
     // ------------------------------------------------------------- theme ---
@@ -875,6 +972,7 @@
       var oldRock = rockMat.map;
       rockTex = makeCrackTexture(theme, false);
       rockMat.map = rockTex;
+      if (rockMat.bumpMap) rockMat.bumpMap = rockTex;
       rockMat.needsUpdate = true;
       if (oldRock) oldRock.dispose();
       rockDarkMat.color.setHex(theme.rockDark).convertSRGBToLinear();
@@ -890,14 +988,17 @@
       rimMat.color.setHex(theme.accent).convertSRGBToLinear();
       ringMat.color.setHex(theme.accent).convertSRGBToLinear();
       glowMat.color.setHex(theme.accent).convertSRGBToLinear();
+      dustMat.color.setHex(theme.seamHot).convertSRGBToLinear();
       keyLight.color.setHex(theme.key);
       hemiLight.color.setHex(theme.fill);
       hemiLight.groundColor.setHex(theme.rockDark);
       scene.fog.color.setHex(theme.fog);
       for (var i2 = 0; i2 < layers.length; i2++) {
         layers[i2].workers.material.color.setHex(theme.accent).convertSRGBToLinear();
-        layers[i2].seamMat.color.setHex(theme.seam).convertSRGBToLinear();
-        layers[i2].seamMat.emissive.setHex(theme.seam).convertSRGBToLinear();
+        [layers[i2].seamPlain, layers[i2].seamGloss].forEach(function (m) {
+          m.color.setHex(theme.seam).convertSRGBToLinear();
+          m.emissive.setHex(theme.seam).convertSRGBToLinear();
+        });
         layers[i2].lamp.color.setHex(theme.seam);
         if (!layers[i2].warnCap.visible) {
           layers[i2].binFillMat.color.setHex(theme.seam).convertSRGBToLinear();
@@ -912,27 +1013,344 @@
       var oldCrack = lockedMat.map;
       crackTex = makeCrackTexture(theme, true);
       lockedMat.map = crackTex;
+      if (lockedMat.bumpMap) lockedMat.bumpMap = crackTex;
       lockedMat.needsUpdate = true;
       if (oldCrack && oldCrack.dispose) oldCrack.dispose();
     }
 
-    // ----------------------------------------------------------- quality ---
-    function setQuality(tier) {
-      if (!CONFIG.pixelRatioCap[tier]) return;
-      quality = tier;
-      keyLight.castShadow = tier !== 'low';
-      var shadowSize = tier === 'high' ? 1024 : 512;
-      if (keyLight.shadow.mapSize.x !== shadowSize) {
-        keyLight.shadow.mapSize.set(shadowSize, shadowSize);
+    // ---------------------------------------------------------- graphics ---
+    // Output pass: ACES tone map + sRGB encode, then an optional colour grade
+    // (gentle S-curve, saturation, warm highlights / cool shadows) and vignette.
+    var OutputGradeShader = {
+      uniforms: {
+        tDiffuse: { value: null }, uExposure: { value: CONFIG.exposure },
+        uGrade: { value: 1.0 }, uVignette: { value: 0.28 }
+      },
+      vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: [
+        'uniform sampler2D tDiffuse; uniform float uExposure; uniform float uGrade; uniform float uVignette;',
+        'varying vec2 vUv;',
+        'vec3 rrtOdt(vec3 v) { vec3 a = v * (v + 0.0245786) - 0.000090537; vec3 b = v * (0.983729 * v + 0.4329510) + 0.238081; return a / b; }',
+        'vec3 aces(vec3 c) {',
+        '  const mat3 inM = mat3(vec3(0.59719, 0.07600, 0.02840), vec3(0.35458, 0.90834, 0.13383), vec3(0.04823, 0.01566, 0.83777));',
+        '  const mat3 outM = mat3(vec3(1.60475, -0.10208, -0.00327), vec3(-0.53108, 1.10813, -0.07276), vec3(-0.07367, -0.00605, 1.07602));',
+        '  c *= uExposure / 0.6; c = inM * c; c = rrtOdt(c); c = outM * c; return clamp(c, 0.0, 1.0);',
+        '}',
+        'vec3 toSRGB(vec3 c) { return mix(c * 12.92, 1.055 * pow(c, vec3(0.41666)) - 0.055, step(0.0031308, c)); }',
+        'void main() {',
+        '  vec4 src = texture2D(tDiffuse, vUv);',
+        '  vec3 c = toSRGB(aces(src.rgb));',
+        '  if (uGrade > 0.0) {',
+        '    vec3 s = mix(c, c * c * (3.0 - 2.0 * c), 0.22);',
+        '    float l = dot(s, vec3(0.299, 0.587, 0.114));',
+        '    s = mix(vec3(l), s, 1.1);',
+        '    s *= mix(vec3(0.95, 0.98, 1.06), vec3(1.05, 1.0, 0.94), smoothstep(0.15, 0.75, l));',
+        '    s = s * 0.97 + 0.018;',
+        '    c = mix(c, clamp(s, 0.0, 1.0), uGrade);',
+        '    float d = length((vUv - 0.5) * vec2(1.1, 1.0));',
+        '    c *= 1.0 - uVignette * uGrade * smoothstep(0.38, 0.9, d);',
+        '  }',
+        '  gl_FragColor = vec4(c, 1.0);',
+        '}'
+      ].join('\n')
+    };
+
+    var composer = null, composerKey = 'none', postError = '', ssaoPass = null;
+    var envTex = null, pmrem = null;
+    var adaptScale = 1, frameAcc = 0, frameCount = 0, lastRenderAt = 0, fpsValue = 0;
+    var fpsEl = null;
+
+    function allMaterials(fn) {
+      var seen = [];
+      scene.traverse(function (o) {
+        if (!o.material) return;
+        var mats = Array.isArray(o.material) ? o.material : [o.material];
+        for (var i2 = 0; i2 < mats.length; i2++) {
+          if (seen.indexOf(mats[i2]) < 0) { seen.push(mats[i2]); fn(mats[i2]); }
+        }
+      });
+      layers.forEach(function (rec) {
+        [rec.seamPlain, rec.seamGloss].forEach(function (m) { if (seen.indexOf(m) < 0) { seen.push(m); fn(m); } });
+      });
+    }
+
+    function currentPixelRatio() {
+      return GFX.pixelRatio(g, root.devicePixelRatio || 1, g.adaptive ? adaptScale : 1);
+    }
+
+    function hdrType() {
+      try {
+        var caps = renderer.capabilities;
+        if (caps.isWebGL2 && (renderer.extensions.has('EXT_color_buffer_float') ||
+            renderer.extensions.has('EXT_color_buffer_half_float'))) return THREE.HalfFloatType;
+      } catch (e) { /* fall through */ }
+      return THREE.UnsignedByteType;
+    }
+
+    function disposeComposer() {
+      if (!composer) return;
+      composer.passes.forEach(function (p) { if (p.dispose) { try { p.dispose(); } catch (e) { /* ignore */ } } });
+      composer.renderTarget1.dispose();
+      composer.renderTarget2.dispose();
+      composer = null;
+      ssaoPass = null;
+    }
+
+    // Post chain: scene (or SSAO beauty) → HDR bloom → tone map/grade → FXAA|SMAA.
+    function buildPost() {
+      disposeComposer();
+      postError = '';
+      if (!g.post) return;
+      try {
+        if (!THREE.EffectComposer || !THREE.RenderPass || !THREE.ShaderPass) throw new Error('addons missing');
+        var w = container.clientWidth || 1, h = container.clientHeight || 1;
+        var pr = currentPixelRatio();
+        var type = hdrType();
+        var params = { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, format: THREE.RGBAFormat, type: type };
+        var rt;
+        if (g.antialias === 'msaa' && renderer.capabilities.isWebGL2 && THREE.WebGLMultisampleRenderTarget) {
+          rt = new THREE.WebGLMultisampleRenderTarget(Math.round(w * pr), Math.round(h * pr), params);
+          rt.samples = 4;
+        } else {
+          rt = new THREE.WebGLRenderTarget(Math.round(w * pr), Math.round(h * pr), params);
+        }
+        var c = new THREE.EffectComposer(renderer, rt);
+        c.setPixelRatio(pr);
+        c.setSize(w, h);
+        if (g.ao !== 'off') {
+          var ao = new THREE.SSAOPass(scene, camera, Math.round(w * pr), Math.round(h * pr));
+          ao.beautyRenderTarget.texture.type = type;
+          ao.normalRenderTarget.depthTexture.type = THREE.UnsignedIntType; // 24-bit depth
+          ao.kernelRadius = g.ao === 'high' ? 0.9 : 0.7;
+          ao.minDistance = 0.00008;
+          ao.maxDistance = 0.0045;
+          // Helpers that must never occlude: invisible pick boxes and
+          // transparent overlays (flash quad, glow, selection ring).
+          var baseHide = ao.overrideVisibility.bind(ao);
+          ao.overrideVisibility = function () {
+            baseHide();
+            scene.traverse(function (o) {
+              if (o.isMesh && o.material && (o.material.visible === false || o.material.transparent)) o.visible = false;
+            });
+          };
+          if (g.ao === 'on') {
+            // half-resolution occlusion buffers; full-resolution beauty
+            var baseSize = ao.setSize.bind(ao);
+            ao.setSize = function (sw, sh) {
+              baseSize(sw, sh);
+              var hw = Math.max(1, Math.round(sw / 2)), hh = Math.max(1, Math.round(sh / 2));
+              ao.normalRenderTarget.setSize(hw, hh);
+              ao.ssaoRenderTarget.setSize(hw, hh);
+              ao.blurRenderTarget.setSize(hw, hh);
+              ao.ssaoMaterial.uniforms.resolution.value.set(hw, hh);
+              ao.blurMaterial.uniforms.resolution.value.set(hw, hh);
+            };
+          }
+          c.addPass(ao);
+          ssaoPass = ao;
+        } else {
+          c.addPass(new THREE.RenderPass(scene, camera));
+        }
+        if (g.bloom === 'on') {
+          var bloom = new THREE.UnrealBloomPass(new THREE.Vector2(w, h), 0.5, 0.22, 0.88);
+          // HDR mip chain: 8-bit mips band into visible steps in the dark rock.
+          bloom.renderTargetBright.texture.type = type;
+          bloom.renderTargetsHorizontal.concat(bloom.renderTargetsVertical).forEach(function (t) { t.texture.type = type; });
+          c.addPass(bloom);
+        }
+        var out = new THREE.ShaderPass(OutputGradeShader);
+        out.uniforms.uGrade.value = g.grade === 'on' ? 1 : 0;
+        c.addPass(out);
+        if (g.antialias === 'smaa' && THREE.SMAAPass) {
+          c.addPass(new THREE.SMAAPass(Math.round(w * pr), Math.round(h * pr)));
+        } else if (g.antialias === 'fxaa' && THREE.FXAAShader) {
+          var fxaa = new THREE.ShaderPass(THREE.FXAAShader);
+          fxaa.uniforms.resolution.value.set(1 / Math.round(w * pr), 1 / Math.round(h * pr));
+          fxaa.fxaaPass = true;
+          c.addPass(fxaa);
+        }
+        c.setPixelRatio(pr);
+        c.setSize(w, h);
+        composer = c;
+      } catch (e) {
+        disposeComposer();
+        postError = String((e && e.message) || e);
+      }
+    }
+
+    function sizeComposer(w, h, pr) {
+      if (!composer) return;
+      composer.setPixelRatio(pr);
+      composer.setSize(w, h);
+      composer.passes.forEach(function (p) {
+        if (p.fxaaPass) p.uniforms.resolution.value.set(1 / Math.round(w * pr), 1 / Math.round(h * pr));
+      });
+    }
+
+    function applyToneMapping() {
+      // With the post chain the output pass tone-maps; the scene renders linear HDR.
+      var want = composer ? THREE.NoToneMapping : THREE.ACESFilmicToneMapping;
+      if (renderer.toneMapping !== want) {
+        renderer.toneMapping = want;
+        allMaterials(function (m) { m.needsUpdate = true; });
+      }
+    }
+
+    function renderFrame() {
+      var now = (root.performance && root.performance.now) ? root.performance.now() : Date.now();
+      if (lastRenderAt) {
+        var ms = now - lastRenderAt;
+        if (ms < 250) { frameAcc += ms; frameCount++; }
+        if (frameCount >= 90) {
+          var avg = frameAcc / frameCount;
+          fpsValue = avg > 0 ? 1000 / avg : 0;
+          frameAcc = 0; frameCount = 0;
+          if (g.adaptive) {
+            var next = adaptScale;
+            if (avg > 26) next = Math.max(0.6, adaptScale - 0.1);
+            else if (avg < 14) next = Math.min(1, adaptScale + 0.05);
+            if (Math.abs(next - adaptScale) > 1e-3) { adaptScale = next; applyPixelRatio(); }
+          }
+          updateFps();
+        }
+      }
+      lastRenderAt = now;
+      if (composer) {
+        try { composer.render(); return; } catch (e) {
+          postError = String((e && e.message) || e);
+          disposeComposer();
+          applyToneMapping();
+        }
+      }
+      renderer.render(scene, camera);
+    }
+
+    function updateFps() {
+      if (!g.showFps) { if (fpsEl) fpsEl.hidden = true; return; }
+      if (!fpsEl && root.document) {
+        fpsEl = root.document.createElement('div');
+        fpsEl.id = 'gfx-fps';
+        fpsEl.setAttribute('aria-hidden', 'true');
+        root.document.body.appendChild(fpsEl);
+      }
+      if (!fpsEl) return;
+      fpsEl.hidden = false;
+      fpsEl.textContent = (fpsValue ? Math.round(fpsValue) : '–') + ' fps · ' + Math.round(currentPixelRatio() * 100) / 100 + '×';
+    }
+
+    function applyPixelRatio() {
+      var w = container.clientWidth || 1, h = container.clientHeight || 1;
+      var pr = currentPixelRatio();
+      renderer.setPixelRatio(pr);
+      renderer.setSize(w, h, false);
+      sizeComposer(w, h, pr);
+    }
+
+    // Shadow camera fitted to the mine's bounding box in light space.
+    var tmpBox = [new THREE.Vector3(), new THREE.Matrix4()];
+    function fitShadow(layerCount) {
+      var n = Math.max(1, Math.min(CONFIG.maxLayers, layerCount || CONFIG.maxLayers));
+      var yTop = CONFIG.surfaceY + 3.0;
+      var yBot = CONFIG.firstLayerY - (n - 1) * CONFIG.spacing - H / 2 - 1.0;
+      var xs = [-W / 2 - 1, W / 2 + 1], ys = [yBot, yTop], zs = [-D / 2 - 0.6, D / 2 + 1.2];
+      var view = tmpBox[1].lookAt(keyLight.position, keyLight.target.position, camera.up);
+      view.setPosition(keyLight.position);
+      view.invert();
+      var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, minZ = Infinity, maxZ = -Infinity;
+      for (var a = 0; a < 2; a++) for (var b = 0; b < 2; b++) for (var c = 0; c < 2; c++) {
+        var v = tmpBox[0].set(xs[a], ys[b], zs[c]).applyMatrix4(view);
+        minX = Math.min(minX, v.x); maxX = Math.max(maxX, v.x);
+        minY = Math.min(minY, v.y); maxY = Math.max(maxY, v.y);
+        minZ = Math.min(minZ, v.z); maxZ = Math.max(maxZ, v.z);
+      }
+      var sc = keyLight.shadow.camera;
+      sc.left = minX - 0.5; sc.right = maxX + 0.5; sc.bottom = minY - 0.5; sc.top = maxY + 0.5;
+      sc.near = Math.max(0.5, -maxZ - 2); sc.far = -minZ + 2;
+      sc.updateProjectionMatrix();
+    }
+
+    function setReflections(on) {
+      if (on && !envTex) {
+        try {
+          pmrem = new THREE.PMREMGenerator(renderer);
+          envTex = pmrem.fromScene(new THREE.RoomEnvironment(), 0.04).texture;
+          pmrem.dispose();
+        } catch (e) { envTex = null; }
+      }
+      var want = on ? envTex : null;
+      if (scene.environment !== want) {
+        scene.environment = want;
+        allMaterials(function (m) { m.needsUpdate = true; });
+      }
+    }
+
+    /** Apply saved graphics settings live (no reload). */
+    function setGraphics(saved) {
+      gfxSaved = saved || {};
+      var prev = g;
+      g = GFX.resolve(gfxSaved, detected);
+      if (!g.adaptive) adaptScale = 1;
+      // shadows
+      var size = GFX.SHADOW_MAP[g.shadows];
+      var shadowsOn = size > 0;
+      if (renderer.shadowMap.enabled !== shadowsOn || keyLight.castShadow !== shadowsOn) {
+        renderer.shadowMap.enabled = shadowsOn;
+        keyLight.castShadow = shadowsOn;
+        allMaterials(function (m) { m.needsUpdate = true; });
+      }
+      if (shadowsOn && keyLight.shadow.mapSize.x !== size) {
+        keyLight.shadow.mapSize.set(size, size);
         if (keyLight.shadow.map) { keyLight.shadow.map.dispose(); keyLight.shadow.map = null; }
       }
-      for (var i2 = 0; i2 < layers.length; i2++) {
-        layers[i2].crystals.count = CONFIG.crystalCounts[tier];
+      keyLight.shadow.bias = -0.0004;
+      keyLight.shadow.normalBias = 0.02;
+      // reflections (image-based lighting)
+      setReflections(g.reflections === 'on');
+      // surface detail
+      var detailed = g.detail === 'detailed';
+      if (!!rockMat.bumpMap !== detailed) {
+        rockMat.bumpMap = detailed ? rockMat.map : null;
+        lockedMat.bumpMap = detailed ? lockedMat.map : null;
+        rockMat.needsUpdate = lockedMat.needsUpdate = true;
       }
-      // note: antialiasing is fixed at renderer creation (antialias: true);
-      // tiers scale pixel ratio, shadows and particle density only. Picking
-      // targets and gameplay information are identical on every tier.
+      for (var i2 = 0; i2 < layers.length; i2++) {
+        var rec = layers[i2];
+        var mat = detailed ? rec.seamGloss : rec.seamPlain;
+        if (rec.seamMat !== mat) {
+          mat.emissiveIntensity = rec.seamMat.emissiveIntensity;
+          rec.seamMat = mat;
+          rec.crystals.material = mat;
+        }
+        rec.crystals.count = GFX.CRYSTALS[g.detail];
+        rec.helmets.visible = detailed;
+        rec.dust.geometry.setDrawRange(0, GFX.DUST[g.particles]);
+        rec.dustPlaced = false;
+      }
+      // post chain (rebuilt only when its shape changes)
+      var key = g.post ? [g.ao, g.bloom, g.antialias].join('|') : 'none';
+      if (key !== composerKey || (g.post && !composer && !postError)) {
+        composerKey = key;
+        buildPost();
+      }
+      var outPass = composer && composer.passes.filter(function (p) { return p.uniforms && p.uniforms.uGrade; })[0];
+      if (outPass) outPass.uniforms.uGrade.value = g.grade === 'on' ? 1 : 0;
+      applyToneMapping();
+      if (root.document && root.document.body) {
+        root.document.body.dataset.gfxPreset = g.preset;
+      }
+      updateFps();
       resize();
+      return prev;
+    }
+
+    function graphicsInfo() {
+      var pr = renderer.getPixelRatio();
+      var w = container.clientWidth || 1, h = container.clientHeight || 1;
+      return {
+        gpu: gpuName, detected: detected, resolved: g, postError: postError,
+        postActive: !!composer, pixels: [Math.round(w * pr), Math.round(h * pr)],
+        adaptiveScale: adaptScale, fps: fpsValue
+      };
     }
 
     function setReducedMotion(v) {
@@ -1037,9 +1455,12 @@
       // keep the framed band centred on the visible layers
       camera.lookAt(CONFIG.camTarget.x, Math.min(CONFIG.camTarget.y, centreY) , CONFIG.camTarget.z);
       camera.updateProjectionMatrix();
-      renderer.setPixelRatio(Math.min(root.devicePixelRatio || 1, CONFIG.pixelRatioCap[quality]));
+      fitShadow(layerCount);
+      var pr = currentPixelRatio();
+      renderer.setPixelRatio(pr);
       renderer.setSize(w, h, false); // CSS keeps the canvas filling the container
-      if (paused) renderer.render(scene, camera); // repaint the frozen frame
+      sizeComposer(w, h, pr); // also refreshes SSAO's projection matrices
+      if (paused) renderFrame(); // repaint the frozen frame
     }
 
     // ------------------------------------------------------------ picking ---
@@ -1125,6 +1546,9 @@
         }
       });
       if (scene.background && scene.background.dispose) scene.background.dispose();
+      disposeComposer();
+      if (envTex) envTex.dispose();
+      if (fpsEl && fpsEl.parentNode) fpsEl.parentNode.removeChild(fpsEl);
       renderer.dispose();
       if (canvas.parentNode === container) container.removeChild(canvas);
     }
@@ -1140,21 +1564,21 @@
       var next = !!v;
       if (next && !paused && !disposed) {
         // freeze decorative motion: present one static frame, then stop
-        renderer.render(scene, camera);
+        renderFrame();
       }
       paused = next;
     }
 
     // ------------------------------------------------------------ startup ---
-    resize();
-    setQuality(quality);
+    setGraphics(gfxSaved); // also sizes the canvas (resize)
     renderer.compile(scene, camera); // precompile shaders before first frame
-    renderer.render(scene, camera);
+    renderFrame();
 
     return {
       setSnapshot: setSnapshot,
       setTheme: setTheme,
-      setQuality: setQuality,
+      setGraphics: setGraphics,
+      graphicsInfo: graphicsInfo,
       setReducedMotion: setReducedMotion,
       setSelectedLayer: setSelectedLayer,
       setFlareActive: setFlareActive,
