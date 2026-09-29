@@ -271,3 +271,7 @@ QA bar (agents/qa.md) as checkable statements: the first lesson and every stage 
 - Friends-only board filter (host-driven sign-in and the cloud-saved profile are done).
 - In-game key and gamepad remapping.
 - A dedicated caption for banking an endless shift.
+
+## Browser interference
+
+`browser-guard.js` (loaded from `index.html`) suppresses browser UI that gets in the way of play: the right-click context menu, the iOS long-press callout, copy / cut / paste, and page text selection. Text fields (inputs, textareas, selects, contenteditable) keep normal selection, context menu and clipboard behaviour.
