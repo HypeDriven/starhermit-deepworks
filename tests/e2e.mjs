@@ -52,10 +52,68 @@ function startStaticServer() {
   return new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve(server)));
 }
 
+// Standalone play makes no /api calls at all (time and scores need a token).
+const PLATFORM_API = /^\/api\//;
+
+// Signed-in pass: launch token in the fragment, platform API stubbed.
+async function platformPass(browser, tag, viewport, hasTouch) {
+  const context = await browser.newContext({ viewport, hasTouch });
+  const page = await context.newPage();
+  const errors = [], seen = [];
+  page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+  page.on('console', (m) => {
+    if ((m.type() === 'error' || m.type() === 'warning') && !browserNoise.test(m.text())) errors.push(`console ${m.type()}: ${m.text()}`);
+  });
+  const b64u = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
+  const jwt = `${b64u({ alg: 'none' })}.${b64u({ sub: 'u-e2e-0001', game_scope: 'deepworks', exp: Math.floor(Date.now() / 1000) + 3600 })}.sig`;
+  await page.route((url) => PLATFORM_API.test(url.pathname), (route) => {
+    const req = route.request(), u = new URL(req.url());
+    seen.push(req.method() + ' ' + u.pathname);
+    const json = (o) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(o) });
+    if (u.pathname === '/api/v1/time') return json({ now: Date.now() });
+    if (u.pathname.endsWith('/profile')) return json({ nickname: 'Pip Tester' });
+    if (u.pathname.endsWith('/settings') && req.method() === 'GET') return json({ settings: { highContrast: true } });
+    if (u.pathname.endsWith('/controls')) return json({ actions: [{ action: 'pause', codes: ['KeyP'] }] });
+    return route.fulfill({ status: 204 });
+  });
+  const click = (sel) => (hasTouch ? page.tap(sel) : page.click(sel));
+  const step = async (name, fn) => { await fn(); console.log(`ok - [${tag}] ${name}`); };
+  try {
+    await step('signed in: nickname, save load, fragment stripped', async () => {
+      await page.goto(`http://127.0.0.1:${server.address().port}/#game_token=${jwt}`, { waitUntil: 'load' });
+      await page.waitForFunction(() => window.DWUI && window.DWUI.currentScreen() === 'title', null, { timeout: 15000 });
+      await page.waitForFunction(() => /Pip Tester/.test(document.getElementById('title-identity').textContent), null, { timeout: 8000 });
+      if (await page.evaluate(() => location.hash)) throw new Error('launch fragment not stripped');
+      if (await page.locator('#btn-signin:visible').count()) throw new Error('sign-in shown while signed in');
+      if (!seen.includes('GET /api/v1/me/cloud-saves/' + encodeURIComponent('game:deepworks'))) throw new Error('no cloud load: ' + seen.join(', '));
+    });
+    await step('platform settings applied (high contrast)', async () => {
+      await page.waitForFunction(() => document.body.classList.contains('hc'), null, { timeout: 5000 });
+    });
+    await step('invite a friend shows a confirmation toast', async () => {
+      await page.locator('#btn-invite').scrollIntoViewIfNeeded();
+      await click('#btn-invite');
+      await page.waitForSelector('#toast-root .toast', { timeout: 3000 });
+      const box = await page.locator('#toast-root .toast').first().boundingBox();
+      if (!box || box.x < 0 || box.x + box.width > viewport.width + 1) throw new Error('toast off-screen ' + JSON.stringify(box));
+      await page.screenshot({ path: SHOT('platform', tag) });
+    });
+    await step('help lists the platform key binding', async () => {
+      await page.locator('#btn-help').scrollIntoViewIfNeeded();
+      await click('#btn-help');
+      await page.waitForFunction(() => /P pause/.test(document.getElementById('help-body').textContent), null, { timeout: 3000 });
+    });
+  } finally {
+    await context.close();
+  }
+  if (errors.length) throw new Error(`[${tag}] page errors:\n` + errors.join('\n'));
+}
+
 async function runPass(browser, tag, viewport, hasTouch) {
   const context = await browser.newContext({ viewport, hasTouch });
   const page = await context.newPage();
   const errors = [];
+  page.on('request', (r) => { if (PLATFORM_API.test(new URL(r.url()).pathname)) errors.push('standalone made an API call: ' + r.url()); });
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
   page.on('console', (m) => {
     if ((m.type() === 'error' || m.type() === 'warning') && !browserNoise.test(m.text())) errors.push(`console ${m.type()}: ${m.text()}`);
@@ -320,6 +378,8 @@ try {
   });
   await runPass(browser, 'desktop', { width: 1280, height: 800 }, false);
   await runPass(browser, 'mobile', { width: 390, height: 844 }, true);
+  await platformPass(browser, 'platform-desktop', { width: 1280, height: 800 }, false);
+  await platformPass(browser, 'platform-mobile', { width: 390, height: 844 }, true);
   console.log('\nE2E PASS — both viewport passes clean, no page errors');
 } finally {
   if (browser) await browser.close();

@@ -41,6 +41,8 @@
     $('btn-daily').addEventListener('click', function () { H.audio('ui_click'); openSetup('daily'); });
     $('btn-journey').addEventListener('click', function () { H.audio('ui_click'); show('journey'); });
     $('btn-profile').addEventListener('click', function () { H.audio('ui_click'); show('profile'); });
+    $('btn-signin').addEventListener('click', function () { H.audio('ui_click'); H.signIn(); });
+    $('btn-invite').addEventListener('click', function () { H.audio('ui_click'); H.invite(); });
     $('btn-help').addEventListener('click', function () { H.audio('ui_click'); show('help'); });
     $('btn-boards').addEventListener('click', function () { H.audio('ui_click'); show('boards'); });
     $('btn-settings').addEventListener('click', function () { H.audio('ui_click'); openSettings(false); });
@@ -104,11 +106,16 @@
     var p = st.profile;
     var done = Object.keys(p.journey).length;
     $('journey-progress-label').textContent = done ? '(' + done + '/' + C.JOURNEY.length + ')' : '';
+    var PS = st.platform.strings;
+    var canSign = !!st.platform.canSignIn, canInvite = !!(st.platform.hosted && st.platform.inviteLink);
+    $('btn-signin').textContent = PS.signIn;
+    $('btn-invite').textContent = PS.invite;
+    $('btn-signin').classList.toggle('hidden', !canSign);
+    $('btn-invite').classList.toggle('hidden', !canInvite);
+    $('title-platform').classList.toggle('hidden', !canSign && !canInvite);
     if (st.platform.hosted) {
-      var syncTxt = st.platform.sync === 'synced' ? ' · progress synced'
-        : st.platform.sync === 'saving' ? ' · saving…'
-        : ' · cloud sync pending';
-      $('title-identity').textContent = 'Signed in as ' + p.displayName + syncTxt;
+      var syncTxt = st.platform.sync === 'synced' ? PS.synced : st.platform.sync === 'saving' ? PS.saving : PS.nosync;
+      $('title-identity').textContent = PS.playing.replace('{name}', p.displayName) + ' · ' + syncTxt;
     } else {
       $('title-identity').textContent = 'Playing as ' + p.displayName + ' (guest — progress stays on this device)';
     }
@@ -383,7 +390,8 @@
     var body = $('help-body');
     body.innerHTML = '';
     var st = H.getState();
-    var km = st.settings.keys;
+    var km = {};
+    ['assign', 'unassign', 'hire', 'shaft', 'liftCap', 'liftSpeed', 'unlock', 'flare', 'foreman', 'undo', 'up', 'down', 'pause'].forEach(function (a) { km[a] = st.keyLabel(a); });
     var cards = [
       ['The loop', 'Workers dig ore into bins. The lift hauls ore to the surface and sells it for credits. Credits buy workers, shaft upgrades, lift upgrades and deeper seams. Find the bottleneck, fix it, automate.'],
       ['Workers', 'Assign (' + km.assign + ') moves an idle worker to the selected layer. Unassign (' + km.unassign + ') pulls one back. Hire (' + km.hire + ') adds a new worker — they arrive idle.'],
@@ -393,7 +401,7 @@
       ['Seam flares', 'Occasionally a seam flares bright. Claim it (' + km.flare + ') before it fades for an instant payout. Flare timing comes from the run seed — it is identical for everyone on a daily.'],
       ['The Foreman', 'A one-time purchase that automates routine: assigns idle workers and buys bottleneck fixes on a fixed cadence. You keep strategy; it keeps the floor.'],
       ['Fair play', 'All randomness is seeded and inspectable. No purchases affect power. Practice allows undo (' + km.undo + '); ranked modes never do.'],
-      ['Controls', 'Pointer/touch: tap a layer to select, then use the Foreman\'s Panel. Keyboard: ↑/↓ select layer, Enter assign, Esc pause. Gamepad: D-pad select, A confirm, B back, Start pause.']
+      ['Controls', 'Pointer/touch: tap a layer to select, then use the Foreman\'s Panel. Keyboard: ' + km.up + '/' + km.down + ' select layer, ' + km.assign + ' assign, ' + km.pause + ' pause. Gamepad: D-pad select, A confirm, B back, Start pause.']
     ];
     cards.forEach(function (c) {
       var card = el('div', 'card');

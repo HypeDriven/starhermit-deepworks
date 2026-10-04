@@ -45,6 +45,41 @@
     pad: { confirm: 0, cancel: 1, pause: 9, up: 12, down: 13 }
   };
 
+  var PT = {
+    'en-US': { offline: 'Offline — progress is stored on this device.', playing: 'Playing as {name}', synced: 'progress synced', saving: 'saving…', nosync: 'cloud sync unavailable', signIn: 'Sign in with StarHermit', invite: 'Invite a friend', copied: 'Invite link copied to the clipboard.', copyFail: 'Could not copy — invite link: {link}' },
+    'en-GB': { offline: 'Offline — progress is stored on this device.', playing: 'Playing as {name}', synced: 'progress synced', saving: 'saving…', nosync: 'cloud sync unavailable', signIn: 'Sign in with StarHermit', invite: 'Invite a friend', copied: 'Invite link copied to the clipboard.', copyFail: 'Could not copy — invite link: {link}' },
+    'es-419': { offline: 'Sin conexión: el progreso se guarda en este dispositivo.', playing: 'Jugando como {name}', synced: 'progreso sincronizado', saving: 'guardando…', nosync: 'sincronización en la nube no disponible', signIn: 'Iniciar sesión con StarHermit', invite: 'Invitar a un amigo', copied: 'Enlace de invitación copiado al portapapeles.', copyFail: 'No se pudo copiar. Enlace de invitación: {link}' },
+    'es-ES': { offline: 'Sin conexión: el progreso se guarda en este dispositivo.', playing: 'Jugando como {name}', synced: 'progreso sincronizado', saving: 'guardando…', nosync: 'sincronización en la nube no disponible', signIn: 'Iniciar sesión con StarHermit', invite: 'Invitar a un amigo', copied: 'Enlace de invitación copiado al portapapeles.', copyFail: 'No se ha podido copiar. Enlace de invitación: {link}' },
+    'de-DE': { offline: 'Offline – der Fortschritt wird auf diesem Gerät gespeichert.', playing: 'Du spielst als {name}', synced: 'Fortschritt synchronisiert', saving: 'wird gespeichert…', nosync: 'Cloud-Synchronisierung nicht verfügbar', signIn: 'Mit StarHermit anmelden', invite: 'Freund einladen', copied: 'Einladungslink in die Zwischenablage kopiert.', copyFail: 'Kopieren fehlgeschlagen – Einladungslink: {link}' },
+    'fr-FR': { offline: 'Hors ligne : la progression est enregistrée sur cet appareil.', playing: 'Vous jouez en tant que {name}', synced: 'progression synchronisée', saving: 'enregistrement…', nosync: 'synchronisation cloud indisponible', signIn: 'Se connecter avec StarHermit', invite: 'Inviter un ami', copied: 'Lien d’invitation copié dans le presse-papiers.', copyFail: 'Copie impossible — lien d’invitation : {link}' },
+    'fr-CA': { offline: 'Hors ligne : la progression est enregistrée sur cet appareil.', playing: 'Vous jouez en tant que {name}', synced: 'progression synchronisée', saving: 'enregistrement…', nosync: 'synchronisation infonuagique non disponible', signIn: 'Se connecter avec StarHermit', invite: 'Inviter un ami', copied: 'Lien d’invitation copié dans le presse-papiers.', copyFail: 'Copie impossible — lien d’invitation : {link}' },
+    'pt-BR': { offline: 'Offline — o progresso fica salvo neste dispositivo.', playing: 'Jogando como {name}', synced: 'progresso sincronizado', saving: 'salvando…', nosync: 'sincronização na nuvem indisponível', signIn: 'Entrar com StarHermit', invite: 'Convidar um amigo', copied: 'Link de convite copiado para a área de transferência.', copyFail: 'Não foi possível copiar — link de convite: {link}' },
+    'it-IT': { offline: 'Offline: i progressi sono salvati su questo dispositivo.', playing: 'Giochi come {name}', synced: 'progressi sincronizzati', saving: 'salvataggio…', nosync: 'sincronizzazione cloud non disponibile', signIn: 'Accedi con StarHermit', invite: 'Invita un amico', copied: 'Link di invito copiato negli appunti.', copyFail: 'Impossibile copiare. Link di invito: {link}' }
+  };
+  var P_STR = PT[typeof DWGfx !== 'undefined' ? DWGfx.pickLocale(navigator.language) : 'en-US'] || PT['en-US'];
+
+  // Keyboard actions as KeyboardEvent.code values (platform overrides apply
+  // via StarHermit controls). Defaults follow settings.keys.
+  var KEY_ACTIONS = ['assign', 'unassign', 'hire', 'shaft', 'liftCap', 'liftSpeed', 'unlock', 'flare', 'foreman', 'undo'];
+  function keyToCode(k) { return /^[A-Za-z]$/.test(k) ? 'Key' + k.toUpperCase() : /^[0-9]$/.test(k) ? 'Digit' + k : k; }
+  function defaultBindings() {
+    var keys = (app.settings && app.settings.keys) || DEFAULT_SETTINGS.keys;
+    var b = { up: ['ArrowUp'], down: ['ArrowDown'], pause: ['Escape'] };
+    KEY_ACTIONS.forEach(function (a) { b[a] = [keyToCode(keys[a] || DEFAULT_SETTINGS.keys[a])]; });
+    return b;
+  }
+  var keyAction = {};
+  function setBindings(b) {
+    app.bindings = b;
+    keyAction = {};
+    Object.keys(b).forEach(function (a) { (b[a] || []).forEach(function (c) { keyAction[c] = a; }); });
+  }
+  function keyLabel(action) {
+    return ((app.bindings && app.bindings[action]) || []).map(function (c) {
+      return String(c).replace(/^Key|^Digit/, '').replace(/^Arrow(.+)$/, '$1').replace(/^Escape$/, 'Esc');
+    }).join('/');
+  }
+
   // Settings from before the Graphics panel stored a coarse `quality` tier;
   // carry an explicit Low/Medium choice over once, otherwise start on Auto.
   function withSettings(saved) {
@@ -66,6 +101,52 @@
     } catch (e) { return false; }
   }
 
+  // ---------------------------------------------------------------- platform ---
+  var platformSettingsReady = false;
+  // Preferences mirrored to the settings KV (keyboard keys go to controls).
+  function pushSettings() {
+    if (!P.state.hosted || !platformSettingsReady) return;
+    var o = {};
+    Object.keys(app.settings).forEach(function (k) { if (k !== 'keys') o[k] = app.settings[k]; });
+    P.patchSettings(o);
+  }
+  function syncFromPlatform() {
+    if (!P.state.hosted) return;
+    P.fetchProfile().then(function () {
+      app.profile.displayName = P.state.profile.displayName;
+      S.saveProfile(app.profile);
+      UI.refreshIdentity && UI.refreshIdentity();
+    }).catch(function () {});
+    platformSettingsReady = false;
+    P.loadCloud().then(function (remoteRaw) {
+      var remote = remoteRaw ? S.loadProfileRaw(remoteRaw) : null;
+      if (remote) {
+        app.profile = remote;
+        app.settings = withSettings(remote.settings);
+        app.profile.settings = app.settings;
+        S.saveProfile(app.profile); // local cache mirrors the remote doc
+        applySettings();
+      }
+      UI.refreshIdentity && UI.refreshIdentity();
+    }).catch(function () {}).then(function () { return P.getSettings(); }).then(function (remote) {
+      platformSettingsReady = true;
+      var changed = false;
+      Object.keys(DEFAULT_SETTINGS).forEach(function (k) {
+        if (k === 'keys' || !remote || remote[k] == null || typeof remote[k] !== typeof DEFAULT_SETTINGS[k]) return;
+        app.settings[k] = (typeof remote[k] === 'object') ? Object.assign({}, DEFAULT_SETTINGS[k], remote[k]) : remote[k];
+        changed = true;
+      });
+      if (changed) { applySettings(); if (app.renderer) app.renderer.setGraphics(app.settings.gfx); UI.refreshIdentity && UI.refreshIdentity(); }
+    }, function () { platformSettingsReady = true; });
+    P.loadBindings(defaultBindings()).then(setBindings).catch(function () {});
+  }
+  function inviteFriend() {
+    var link = P.inviteLink();
+    if (!link) return;
+    var fail = function () { UI.toast(P_STR.copyFail.replace('{link}', link)); };
+    try { navigator.clipboard.writeText(link).then(function () { UI.toast(P_STR.copied); }, fail); } catch (e) { fail(); }
+  }
+
   // ------------------------------------------------------------------ boot ---
   function boot() {
     P.init();
@@ -74,27 +155,12 @@
     app.profile.settings = app.settings;
     applySettings();
 
-    // Hosted: the account nickname replaces the guest name and the remote
-    // save wins over the local cache before anything renders.
-    if (P.state.hosted) {
-      P.fetchProfile().then(function () {
-        app.profile.displayName = P.state.profile.displayName;
-        S.saveProfile(app.profile);
-        UI.refreshIdentity && UI.refreshIdentity();
-      }).catch(function () {});
-      P.onSync(function () { UI.refreshIdentity && UI.refreshIdentity(); });
-      P.loadCloud().then(function (remoteRaw) {
-        var remote = remoteRaw ? S.loadProfileRaw(remoteRaw) : null;
-        if (remote) {
-          app.profile = remote;
-          app.settings = withSettings(remote.settings);
-          app.profile.settings = app.settings;
-          S.saveProfile(app.profile); // local cache mirrors the remote doc
-          applySettings();
-        }
-        UI.refreshIdentity && UI.refreshIdentity();
-      }).catch(function () {});
-    }
+    setBindings(defaultBindings());
+    // Signed in: the account nickname replaces the guest name, the remote
+    // save wins over the local cache, platform settings and bindings win.
+    P.onSync(function () { UI.refreshIdentity && UI.refreshIdentity(); });
+    P.onAuth(function () { UI.refreshIdentity && UI.refreshIdentity(); syncFromPlatform(); });
+    syncFromPlatform();
 
     UI.init(handlers);
     UI.setBootProgress(0.2, 'Checking the cage…');
@@ -604,8 +670,9 @@
 
     document.addEventListener('keydown', function (ev) {
       if (ev.target && (ev.target.tagName === 'INPUT' || ev.target.tagName === 'SELECT')) return;
-      var k = ev.key;
-      if (k === 'Escape') {
+      if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+      var action = keyAction[ev.code];
+      if (action === 'pause') {
         ev.preventDefault();
         var scr = UI.currentScreen();
         if (scr === 'play') (app.paused && !app.countdownEnd) ? resumeGame() : pauseGame();
@@ -613,28 +680,25 @@
         else if (scr !== 'title') UI.back();
         return;
       }
-      if (UI.currentScreen() !== 'play' || !app.run) return;
-      var keys = app.settings.keys;
+      if (UI.currentScreen() !== 'play' || !app.run || !action) return;
       var st = app.run.state;
-      var handled = true;
-      if (k === 'ArrowDown' || k === 'ArrowUp') {
-        var dir = k === 'ArrowDown' ? 1 : -1;
+      if (action === 'up' || action === 'down') {
+        var dir = action === 'down' ? 1 : -1;
         var cur = app.selectedLayer === null ? (dir > 0 ? -1 : st.layers.length) : app.selectedLayer;
         var next = Math.max(0, Math.min(st.layers.length - 1, cur + dir));
         onLayerPicked(next);
       }
-      else if (k === keys.assign || k === 'Enter') cmdSel('assign');
-      else if (k.toUpperCase() === keys.unassign) cmdSel('unassign');
-      else if (k.toUpperCase() === keys.hire) doCommand({ type: 'hire' });
-      else if (k.toUpperCase() === keys.shaft) cmdSel('upgrade_shaft');
-      else if (k.toUpperCase() === keys.liftCap) doCommand({ type: 'upgrade_lift_cap' });
-      else if (k.toUpperCase() === keys.liftSpeed) doCommand({ type: 'upgrade_lift_speed' });
-      else if (k.toUpperCase() === keys.unlock) doCommand({ type: 'unlock_layer' });
-      else if (k.toUpperCase() === keys.flare) claimActiveFlare();
-      else if (k.toUpperCase() === keys.foreman) doCommand({ type: app.run.state.foreman.unlocked ? 'toggle_foreman' : 'buy_foreman' });
-      else if (k.toUpperCase() === keys.undo) doUndo();
-      else handled = false;
-      if (handled) ev.preventDefault();
+      else if (action === 'assign') cmdSel('assign');
+      else if (action === 'unassign') cmdSel('unassign');
+      else if (action === 'hire') doCommand({ type: 'hire' });
+      else if (action === 'shaft') cmdSel('upgrade_shaft');
+      else if (action === 'liftCap') doCommand({ type: 'upgrade_lift_cap' });
+      else if (action === 'liftSpeed') doCommand({ type: 'upgrade_lift_speed' });
+      else if (action === 'unlock') doCommand({ type: 'unlock_layer' });
+      else if (action === 'flare') claimActiveFlare();
+      else if (action === 'foreman') doCommand({ type: app.run.state.foreman.unlocked ? 'toggle_foreman' : 'buy_foreman' });
+      else if (action === 'undo') doUndo();
+      ev.preventDefault();
     });
 
     // gamepad polling
@@ -750,9 +814,8 @@
     var lessonText = null;
     if (app.lesson && app.lesson.steps[app.lessonStepIdx]) {
       // Shortcut placeholders ({assign}, {hire}, …) resolve to the player's real bindings.
-      var keys = (app.settings && app.settings.keys) || {};
       lessonText = 'Lesson ' + (app.lessonStepIdx + 1) + '/' + app.lesson.steps.length + ': ' +
-        app.lesson.steps[app.lessonStepIdx].text.replace(/\{(\w+)\}/g, function (m, k) { return keys[k] || m; });
+        app.lesson.steps[app.lessonStepIdx].text.replace(/\{(\w+)\}/g, function (m, k) { return keyLabel(k) || m; });
     }
     return {
       state: app.run.state,
@@ -772,7 +835,8 @@
       return {
         profile: app.profile, settings: app.settings, run: app.run,
         mode: app.mode, content: app.content, selectedLayer: app.selectedLayer,
-        platform: { hosted: P.state.hosted }, savedRun: app.savedRun
+        platform: { hosted: P.state.hosted, sync: P.state.sync, canSignIn: P.canSignIn(), inviteLink: P.inviteLink(), strings: P_STR },
+        keyLabel: keyLabel, savedRun: app.savedRun
       };
     },
     audio: function (name) { A.unlock(); A.play(name); },
@@ -786,8 +850,11 @@
     command: doCommand,
     selectLayer: onLayerPicked,
     undo: doUndo,
+    signIn: function () { P.signIn(); },
+    invite: inviteFriend,
     settingsChanged: function () {
       applySettings();
+      pushSettings();
       P.track('settings_change', {});
     },
     // Graphics panel: apply live (no theme rebuild) and persist with the profile.
@@ -795,6 +862,7 @@
       if (app.renderer) app.renderer.setGraphics(app.settings.gfx);
       app.profile.settings = app.settings;
       S.saveProfile(app.profile);
+      pushSettings();
     },
     graphicsInfo: function () {
       return app.renderer ? app.renderer.graphicsInfo() : null;
