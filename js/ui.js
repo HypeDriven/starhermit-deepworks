@@ -989,8 +989,10 @@
       var pos = renderer.screenPosForLayer(i);
       if (!pos) { d.style.display = 'none'; continue; }
       d.style.display = '';
-      d.style.left = pos.x + 'px';
-      d.style.top = pos.y + 'px';
+      // pos is in viewport px; #layer-labels is zoomed by UIScale
+      var z = (root.UIScale && root.UIScale.value) || 1;
+      d.style.left = (pos.x / z) + 'px';
+      d.style.top = (pos.y / z) + 'px';
       d.classList.toggle('selected', i === selectedLayer);
       var blocked = L.unlocked && R.isBlocked(st, i);
       d.classList.toggle('blocked', blocked);

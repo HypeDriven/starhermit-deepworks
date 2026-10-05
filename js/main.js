@@ -797,7 +797,7 @@
     // top bar): keep the banner below the top bar and re-frame the mine.
     var hudTop = document.getElementById('hud-top');
     var syncHud = function () {
-      if (hudTop) document.documentElement.style.setProperty('--hud-top-h', Math.ceil(hudTop.getBoundingClientRect().bottom) + 'px');
+      if (hudTop) document.documentElement.style.setProperty('--hud-top-h', Math.ceil(hudTop.getBoundingClientRect().bottom / ((window.UIScale && UIScale.value) || 1)) + 'px');
       if (app.renderer) app.renderer.resize();
     };
     if (typeof ResizeObserver === 'function') {
