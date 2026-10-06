@@ -268,8 +268,11 @@ tr.me td { color: var(--accent); font-weight: 700; }
   z-index: 30; display: flex; flex-direction: column; gap: 6px; align-items: center;
   pointer-events: none;
 }
+/* while a menu/results screen is up, toasts float at the top, clear of the panel's buttons */
+body:has(#main-ui .screen.active) #toast-root { top: calc(8px + var(--sat)); bottom: auto; }
+#toast-root { width: max-content; max-width: calc(100% - 24px); }
 .toast {
-  background: var(--panel-solid); border: 1px solid var(--line); border-radius: 99px;
+  background: var(--panel-solid); border: 1px solid var(--line); border-radius: 1.2em;
   padding: 0.5em 1.2em; font-size: 0.9em; animation: toast-in 0.18s ease-out;
 }
 .toast.err { border-color: var(--bad); color: var(--bad); }
@@ -328,6 +331,8 @@ input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accent);
   /* the lesson card docks left under the HUD so it never sits over layer labels */
   #lesson-banner { left: calc(60px + var(--sal)); transform: none; width: min(calc(40vw / var(--ui-scale, 1)), 300px); font-size: 0.85em; padding: 0.4em 0.7em; text-align: left; }
   .hud-cell { padding: 0.25em 0.6em; }
+  /* panels fill the short height: make room for the top toasts while they show */
+  .screen { padding-top: calc(16px + var(--sat) + var(--toast-h, 0px)); }
 }
 
 /* reduced motion */

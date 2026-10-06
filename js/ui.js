@@ -1012,8 +1012,16 @@
   // -------------------------------------------------------------- feedback ---
   function toast(msg, kind) {
     var t = el('div', 'toast' + (kind ? ' ' + kind : ''), msg);
-    $('toast-root').appendChild(t);
-    setTimeout(function () { t.remove(); }, 2600);
+    var root = $('toast-root');
+    root.appendChild(t);
+    syncToastH();
+    setTimeout(function () { t.remove(); syncToastH(); }, 2600);
+  }
+  // Toast stack height (layout px) so short landscape screens can keep their
+  // panel clear of the toasts that float at the top while a screen is up.
+  function syncToastH() {
+    var root = $('toast-root');
+    document.documentElement.style.setProperty('--toast-h', (root.childElementCount ? root.offsetHeight + 8 : 0) + 'px');
   }
   function announce(msg, assertive) {
     $(assertive ? 'live-assertive' : 'live-polite').textContent = msg;
