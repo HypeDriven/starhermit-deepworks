@@ -278,8 +278,11 @@
       var payload = JSON.stringify(profile);
       var wrapped = JSON.stringify({ sum: checksum(payload), payload: payload });
       st.setItem(PROFILE_KEY, wrapped);
-      if (root.DWPlatform && typeof root.DWPlatform.onSave === 'function')
-        root.DWPlatform.onSave(wrapped); // mirror to the cloud slot
+      // `root` is not in scope inside the factory (the ReferenceError was
+      // swallowed below, so the cloud mirror never ran); read the global.
+      var platform = typeof self !== 'undefined' ? self.DWPlatform : null;
+      if (platform && typeof platform.onSave === 'function')
+        platform.onSave(wrapped); // mirror to the cloud slot
       return true;
     } catch (e) {
       // quota/security errors: persistence unavailable, not a thrown crash
