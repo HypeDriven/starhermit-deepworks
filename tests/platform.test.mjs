@@ -31,7 +31,6 @@ function boot(hash) {
       return json({ settings: store.settings });
     }
     if (url === '/api/v1/time') return json({ now: Date.now() });
-    if (url === '/api/v1/scores/daily') return json({ ok: true, rank: 1 });
     if (url.endsWith(`/api/v1/games/${SLUG}/controls`)) return json({ actions: [{ action: 'serve', codes: ['KeyX'] }] });
     return new Response('', { status: 404 });
   };
@@ -86,7 +85,7 @@ test('cloud save round-trips through /api/v1/me/cloud-saves/game:<slug>', async 
   assert.equal(await P.loadCloud(), wrapped);
 });
 
-test('settings patch, bindings, invite link and own-server time/scores', async () => {
+test('settings patch, bindings, invite link, time and platform scores', async () => {
   const { P, calls, store } = boot('#game_token=' + JWT);
   P.init();
   await Promise.all([P.patchSettings({ theme: 'x' }), P.patchSettings({ muted: true })]);
@@ -95,10 +94,9 @@ test('settings patch, bindings, invite link and own-server time/scores', async (
   assert.deepEqual(J(await P.loadBindings({ serve: ['KeyS'], hint: ['KeyH'] })), { serve: ['KeyX'], hint: ['KeyH'] });
   assert.match(P.inviteLink(), /game-invite\/u-12345678\/deepworks$/);
   assert.equal(await P.syncTime(), true);
-  const res = await P.submitScore('daily', { scoreTotal: 5 });
-  assert.equal(res.rank, 1);
-  const post = calls.find((c) => c.url === '/api/v1/scores/daily');
-  assert.equal(post.init.headers.Authorization, 'Bearer ' + JWT);
+  // signed in, runs never touch the old own-server score routes
+  assert.deepEqual(J(await P.submitScore('daily', { scoreTotal: 5 })), { ok: false, local: false });
+  assert.equal(calls.filter((c) => /\/scores\//.test(c.url)).length, 0);
 });
 
 test('standalone: no token means no fetch at all', async () => {
@@ -115,6 +113,7 @@ test('standalone: no token means no fetch at all', async () => {
   assert.deepEqual(J(await P.loadBindings({ hint: ['KeyH'] })), { hint: ['KeyH'] });
   assert.equal(await P.syncTime(), false);
   await P.submitScore('daily', { scoreTotal: 5, name: 'Guest' });
+  assert.deepEqual(J(await P.postHighScore(5)), { posted: false, rank: null });
   await new Promise((r) => setTimeout(r, 50));
   assert.equal(calls.length, 0);
 });

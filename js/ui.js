@@ -196,7 +196,7 @@
         info.appendChild(kv('Seed', '#' + (contentEntry.seed >>> 0).toString(36)));
         var ranked = mode === 'daily';
         var badgeRow = el('p');
-        badgeRow.appendChild(el('span', 'badge ' + (ranked ? 'ranked' : 'casual'), ranked ? 'ranked — validated replay' : 'casual — unranked'));
+        badgeRow.appendChild(el('span', 'badge ' + (ranked ? 'ranked' : 'casual'), ranked ? 'ranked — same seed for everyone' : 'casual — unranked'));
         info.appendChild(badgeRow);
         panel.appendChild(info);
       }
@@ -343,14 +343,14 @@
     panel.appendChild(el('h2', null, 'Leaderboards'));
     var st = H.getState();
     var note = el('p', 'subtle', st.platform.hosted ?
-      'Validated boards: daily scores are replay-checked server-side.' :
+      'StarHermit high-score board: Journey, Daily and Challenge run scores.' :
       'Offline mode: boards are local to this device and marked casual.');
     panel.appendChild(note);
 
     var tabs = el('div', 'action-row');
     var body = el('div');
-    ['daily', 'global'].forEach(function (board, i) {
-      var t = btn(board === 'daily' ? 'Daily' : 'All-time', i === 0 ? 'selected' : 'ghost', function () {
+    (st.platform.hosted ? ['high-score'] : ['daily', 'global']).forEach(function (board, i) {
+      var t = btn(board === 'daily' ? 'Daily' : board === 'global' ? 'All-time' : 'High score', i === 0 ? 'selected' : 'ghost', function () {
         tabs.querySelectorAll('.btn').forEach(function (x) { x.className = 'btn ghost'; });
         t.className = 'btn selected';
         loadBoard(board, body);
@@ -360,7 +360,7 @@
     panel.appendChild(tabs);
     panel.appendChild(body);
     panel.appendChild(btn('Back', 'ghost back-btn', function () { H.audio('ui_back'); back(); }));
-    loadBoard('daily', body);
+    loadBoard(st.platform.hosted ? 'high-score' : 'daily', body);
   }
   function loadBoard(board, body) {
     body.innerHTML = '';
@@ -374,8 +374,8 @@
       var tb = el('tbody');
       var me = H.getState().profile.displayName;
       res.entries.slice(0, 25).forEach(function (e2, i) {
-        var tr = el('tr', e2.name === me ? 'me' : null);
-        [String(i + 1), e2.name || 'Anonymous', R.formatCoins(e2.score), fmtTime(e2.durationSec || 0)]
+        var tr = el('tr', (e2.me != null ? e2.me : e2.name === me) ? 'me' : null);
+        [String(e2.rank || i + 1), e2.name || 'Anonymous', R.formatCoins(e2.score), e2.durationSec != null ? fmtTime(e2.durationSec) : '—']
           .forEach(function (v) { tr.appendChild(el('td', null, v)); });
         tb.appendChild(tr);
       });
@@ -724,6 +724,17 @@
     }
     if (data.boardResult) {
       panel.appendChild(el('p', 'subtle', data.boardResult));
+    }
+    if (data.leaderboard) {
+      var lbs = data.leaderboard.strings;
+      var lb = el('p', 'subtle', lbs.lbPosting);
+      lb.id = 'results-lb';
+      lb.setAttribute('aria-live', 'polite');
+      panel.appendChild(lb);
+      data.leaderboard.promise.then(function (r) {
+        lb.textContent = !r.posted ? lbs.lbNotPosted
+          : r.rank ? lbs.lbRank.replace('{rank}', r.rank) : lbs.lbPosted;
+      });
     }
 
     var row = el('div', 'action-row');

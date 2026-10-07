@@ -211,14 +211,37 @@
   // ------------------------------------------------- scores (own backend) ---
   var LOCAL_BOARD_KEY = 'deepworks.boards.v1';
 
+  // Signed in: post a finished run's score (whole credits) to the platform
+  // high-score board through score-script.js. Resolves { posted, rank }.
+  function postHighScore(credits) {
+    var s = sdk();
+    if (!s || !state.hosted) return Promise.resolve({ posted: false, rank: null });
+    return s.submitScores({ 'high-score': credits }).then(function (keys) {
+      if (keys.indexOf('high-score') < 0) return { posted: false, rank: null };
+      return s.leaderboard('high-score', { pageSize: 100 }).then(function (r) {
+        var me = (r.items || []).filter(function (i) { return i.userId === s.userId; })[0];
+        return { posted: true, rank: me ? me.rank : null };
+      }, function () { return { posted: true, rank: null }; });
+    }, function () { return { posted: false, rank: null }; });
+  }
+
+  // Signed in: the platform high-score board (scores in whole credits,
+  // returned as milli-credits like the local board), names from profiles.
+  function platformBoard() {
+    var s = sdk();
+    return s.leaderboard('high-score', { pageSize: 25 }).then(function (r) {
+      var items = r.items || [];
+      return Promise.all(items.map(function (i) {
+        return profileFor(i.userId).catch(function () { return 'Player ' + String(i.userId).slice(0, 6); });
+      })).then(function (names) {
+        return { entries: items.map(function (i, k) { return { name: names[k], score: i.score * 1000, rank: i.rank, me: i.userId === s.userId }; }) };
+      });
+    }).catch(function () { return { entries: [] }; });
+  }
+
   function submitScore(board, entry) {
-    // entry: {score, ruleset, contentVersion, seed, assists, durationSec, envelope?}
-    if (state.hosted) {
-      return api('/scores/' + encodeURIComponent(board), {
-        method: 'POST', body: entry
-      }).catch(function (e) { return { ok: false, error: e.message, local: true }; });
-    }
-    // offline: local board, labelled casual (no authoritative validation)
+    // Local casual board only (offline); signed-in runs use postHighScore.
+    if (state.hosted) return Promise.resolve({ ok: false, local: false });
     try {
       var boards = JSON.parse(localStorage.getItem(LOCAL_BOARD_KEY) || '{}');
       boards[board] = boards[board] || [];
@@ -235,11 +258,8 @@
     } catch (e) { return Promise.resolve({ ok: false, error: 'storage' }); }
   }
 
-  function getBoard(board, friendsOnly) {
-    if (state.hosted) {
-      return api('/scores/' + encodeURIComponent(board) + (friendsOnly ? '?friends=1' : ''))
-        .catch(function () { return { entries: [], casual: true }; });
-    }
+  function getBoard(board) {
+    if (state.hosted) return platformBoard();
     try {
       var boards = JSON.parse(localStorage.getItem(LOCAL_BOARD_KEY) || '{}');
       return Promise.resolve({ entries: boards[board] || [], casual: true });
@@ -287,6 +307,7 @@
     activityStart: activityStart,
     activityEnd: activityEnd,
     submitScore: submitScore,
+    postHighScore: postHighScore,
     getBoard: getBoard,
     unlockAchievement: unlockAchievement,
     fetchProfile: fetchProfile,
