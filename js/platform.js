@@ -111,17 +111,33 @@
   /* Cloud save: the SDK slot holds the wrapped profile document. Remote wins
    * on boot (validated by DWSession.loadProfileRaw); localStorage stays the
    * offline cache. */
+  // Saves made before the cloud load settles (boot settings, nickname) are
+  // held, not queued: a queued stale doc would be PUT by the debounce or a
+  // pagehide flush over a newer cloud save. When the slot holds a doc the
+  // held copy is dropped (main.js adopts and re-saves the remote doc);
+  // otherwise it is pushed.
+  var cloudLoaded = false;
+  var heldSave = null;
   function loadCloud() {
     var s = sdk();
     if (!s || !state.hosted) return Promise.resolve(null);
+    cloudLoaded = false;
+    var settle = function (obj) {
+      cloudLoaded = true;
+      var held = heldSave;
+      heldSave = null;
+      if (!obj && held) onSave(held); // empty slot (or load error): push the local doc
+      return obj ? JSON.stringify(obj) : null;
+    };
     return s.loadJSON().then(function (obj) {
       if (state.sync === 'offline') setSync('synced');
-      return obj ? JSON.stringify(obj) : null;
-    }, function () { return null; });
+      return settle(obj);
+    }, function () { return settle(null); });
   }
   function onSave(wrapped) {
     var s = sdk();
     if (!s || !state.hosted) return;
+    if (!cloudLoaded) { heldSave = wrapped; return; }
     try { s.saveJSON(JSON.parse(wrapped), SAVE_DEBOUNCE_MS); } catch (e) { return; }
     setSync('saving');
   }

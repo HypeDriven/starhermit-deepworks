@@ -112,13 +112,11 @@
   }
   function syncFromPlatform() {
     if (!P.state.hosted) return;
-    P.fetchProfile().then(function () {
-      app.profile.displayName = P.state.profile.displayName;
-      S.saveProfile(app.profile);
-      UI.refreshIdentity && UI.refreshIdentity();
-    }).catch(function () {});
+    // The nickname is fetched in parallel but applied after the cloud doc is
+    // adopted, so it lands on the remote profile instead of the stale cache.
+    var profile = P.fetchProfile().catch(function () { return null; });
     platformSettingsReady = false;
-    P.loadCloud().then(function (remoteRaw) {
+    var loaded = P.loadCloud().then(function (remoteRaw) {
       var remote = remoteRaw ? S.loadProfileRaw(remoteRaw) : null;
       if (remote) {
         app.profile = remote;
@@ -128,7 +126,14 @@
         applySettings();
       }
       UI.refreshIdentity && UI.refreshIdentity();
-    }).catch(function () {}).then(function () { return P.getSettings(); }).then(function (remote) {
+    }).catch(function () {});
+    Promise.all([profile, loaded]).then(function (r) {
+      if (!r[0]) return;
+      app.profile.displayName = P.state.profile.displayName;
+      S.saveProfile(app.profile);
+      UI.refreshIdentity && UI.refreshIdentity();
+    });
+    loaded.then(function () { return P.getSettings(); }).then(function (remote) {
       platformSettingsReady = true;
       var changed = false;
       Object.keys(DEFAULT_SETTINGS).forEach(function (k) {

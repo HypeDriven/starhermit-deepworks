@@ -75,7 +75,8 @@ test('cloud save round-trips through /api/v1/me/cloud-saves/game:<slug>', async 
   const { P, calls } = boot('#game_token=' + JWT);
   P.init();
   const wrapped = JSON.stringify({ sum: 'abc', payload: '{"v":1}' });
-  P.onSave(wrapped);
+  P.onSave(wrapped); // held until the boot cloud load settles
+  assert.equal(await P.loadCloud(), null); // empty slot: the held save is pushed
   assert.equal(P.state.sync, 'saving');
   assert.equal(await P.flushSave(true), true);
   const put = calls.find((c) => c.method === 'PUT');
