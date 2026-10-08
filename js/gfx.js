@@ -46,7 +46,7 @@
     var g = String(gpu || '').toLowerCase();
     var tier = 'balanced';
     if (/swiftshader|llvmpipe|softpipe|software|basic render|microsoft basic/.test(g)) tier = 'low';
-    else if (/nvidia|geforce|rtx|gtx|quadro|radeon rx|radeon pro|amd radeon(?! graphics)|apple m\d/.test(g)) tier = 'high';
+    else if (/nvidia|geforce|rtx|gtx|quadro|radeon rx|radeon pro|amd radeon(?!.*graphics)|apple m\d/.test(g)) tier = 'high';
     if (mobile && (tier === 'high' || tier === 'ultra')) tier = 'balanced';
     return tier;
   }
