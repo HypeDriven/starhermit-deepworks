@@ -1216,13 +1216,13 @@
       }
       lastRenderAt = now;
       if (composer) {
-        try { composer.render(); return; } catch (e) {
+        try { (globalThis.GameOptions ? globalThis.GameOptions.draw(composer.renderer, () => composer.render()) : composer.render()); return; } catch (e) {
           postError = String((e && e.message) || e);
           disposeComposer();
           applyToneMapping();
         }
       }
-      renderer.render(scene, camera);
+      (globalThis.GameOptions ? globalThis.GameOptions.draw(renderer, () => renderer.render(scene, camera)) : renderer.render(scene, camera));
     }
 
     function updateFps() {

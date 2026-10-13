@@ -33,7 +33,7 @@
       var g = ctx.createGain();
       g.gain.value = volumes[name];
       g.connect(masterGain);
-      buses[name] = g;
+      buses[name] = (globalThis.GameOptions ? globalThis.GameOptions.tagBus(g, name) : g);
     });
     return true;
   }
@@ -65,7 +65,7 @@
   // ------------------------------------------------------------ primitives ---
   function tone(bus, freq, dur, type, gain, slide) {
     if (!ctx || muted) return;
-    var o = ctx.createOscillator();
+    var o = (globalThis.GameOptions ? globalThis.GameOptions.trackSource(ctx.createOscillator(), bus) : ctx.createOscillator());
     var g = ctx.createGain();
     var t = ctx.currentTime;
     o.type = type || 'sine';
@@ -83,7 +83,7 @@
     var buf = ctx.createBuffer(1, len, ctx.sampleRate);
     var d = buf.getChannelData(0);
     for (var i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
-    var src = ctx.createBufferSource();
+    var src = (globalThis.GameOptions ? globalThis.GameOptions.trackSource(ctx.createBufferSource(), bus) : ctx.createBufferSource());
     src.buffer = buf;
     var f = ctx.createBiquadFilter();
     f.type = 'lowpass'; f.frequency.value = filterFreq || 1200;
@@ -173,7 +173,7 @@
       var buf = sampleCache[sampleName];
       if (buf) {
         try {
-          var src = ctx.createBufferSource();
+          var src = (globalThis.GameOptions ? globalThis.GameOptions.trackSource(ctx.createBufferSource(), name) : ctx.createBufferSource());
           src.buffer = buf;
           src.connect(buses.effects); // respects effects volume + master mute
           src.start();
@@ -199,7 +199,7 @@
       last = (last + 0.02 * w) / 1.02;
       d[i] = last * 3.5;
     }
-    noiseSource = ctx.createBufferSource();
+    noiseSource = (globalThis.GameOptions ? globalThis.GameOptions.trackSource(ctx.createBufferSource(), null) : ctx.createBufferSource());
     noiseSource.buffer = buf; noiseSource.loop = true;
     var f = ctx.createBiquadFilter();
     f.type = 'lowpass'; f.frequency.value = 220; f.Q.value = 0.4;
@@ -207,7 +207,7 @@
     noiseSource.connect(f); f.connect(g); g.connect(buses.ambience);
     noiseSource.start();
     // slow LFO on the filter = distant rumble breathing
-    var lfo = ctx.createOscillator(); lfo.frequency.value = 0.07;
+    var lfo = (globalThis.GameOptions ? globalThis.GameOptions.trackSource(ctx.createOscillator(), null) : ctx.createOscillator()); lfo.frequency.value = 0.07;
     var lfoG = ctx.createGain(); lfoG.gain.value = 60;
     lfo.connect(lfoG); lfoG.connect(f.frequency); lfo.start();
   }
