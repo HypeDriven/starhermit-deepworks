@@ -19,6 +19,13 @@
   var lastRailSig = '';
   var toastTimer = null;
 
+  // Every player-facing string follows the game language (js/i18n.js, keyed
+  // by the US-English text).
+  function T(key, vars) { return root.DWI18n ? root.DWI18n.T(key, vars) : String(key).replace(/\{(\w+)\}/g, function (m, k) { return vars && vars[k] != null ? vars[k] : m; }); }
+  function N(key) { return key; }
+  // The default guest name reads in the game language; chosen names never change.
+  function nameText(n) { return n === 'Guest Prospector' ? T('Guest Prospector') : n; }
+  function gfxLocale() { return root.DWI18n ? root.DWI18n.lang : GFX.pickLocale(navigator.language); }
   function $(id) { return document.getElementById(id); }
   function el(tag, cls, text) {
     var e = document.createElement(tag);
@@ -106,28 +113,25 @@
     var p = st.profile;
     var done = Object.keys(p.journey).length;
     $('journey-progress-label').textContent = done ? '(' + done + '/' + C.JOURNEY.length + ')' : '';
-    var PS = st.platform.strings;
     var canSign = !!st.platform.canSignIn, canInvite = !!(st.platform.hosted && st.platform.inviteLink);
-    $('btn-signin').textContent = PS.signIn;
-    $('btn-invite').textContent = PS.invite;
     $('btn-signin').classList.toggle('hidden', !canSign);
     $('btn-invite').classList.toggle('hidden', !canInvite);
     $('title-platform').classList.toggle('hidden', !canSign && !canInvite);
     if (st.platform.hosted) {
-      var syncTxt = st.platform.sync === 'synced' ? PS.synced : st.platform.sync === 'saving' ? PS.saving : PS.nosync;
-      $('title-identity').textContent = PS.playing.replace('{name}', p.displayName) + ' · ' + syncTxt;
+      var syncTxt = st.platform.sync === 'synced' ? T('progress synced') : st.platform.sync === 'saving' ? T('saving…') : T('cloud sync unavailable');
+      $('title-identity').textContent = T('Playing as {name}', { name: nameText(p.displayName) }) + ' · ' + syncTxt;
     } else {
-      $('title-identity').textContent = 'Playing as ' + p.displayName + ' (guest — progress stays on this device)';
+      $('title-identity').textContent = T('Playing as {name} (guest — progress stays on this device)', { name: nameText(p.displayName) });
     }
     var banner = $('resume-banner');
     var saved = st.savedRun;
     if (saved) {
       banner.classList.remove('hidden');
       banner.innerHTML = '';
-      banner.appendChild(el('p', null, 'A previous shift is waiting (' + saved.contentId + ').'));
+      banner.appendChild(el('p', null, T('A previous shift is waiting ({id}).', { id: saved.contentId })));
       var row = el('div', 'action-row');
-      row.appendChild(btn('Resume shift', 'primary small', function () { H.resumeSaved(); }));
-      row.appendChild(btn('Abandon', 'ghost small', function () { H.discardSaved(); buildTitle(); }));
+      row.appendChild(btn(T('Resume shift'), 'primary small', function () { H.resumeSaved(); }));
+      row.appendChild(btn(T('Abandon'), 'ghost small', function () { H.discardSaved(); buildTitle(); }));
       banner.appendChild(row);
     } else {
       banner.classList.add('hidden');
@@ -142,28 +146,28 @@
     try { ms = root.DWPlatform.msUntilNextDaily(); } catch (e) { return; }
     var s = Math.floor(ms / 1000);
     var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
-    elx.textContent = '(new in ' + h + 'h ' + m + 'm)';
+    elx.textContent = T('(new in {h}h {m}m)', { h: h, m: m });
   }
 
   // ---------------------------------------------------------------- modes ---
   var MODES = [
-    { id: 'learn', name: 'Learn', desc: 'Interactive lessons. One rule at a time — you perform every action.', time: '2–4 min each', ranked: false },
-    { id: 'journey', name: 'Journey', desc: '40 authored stages. New mechanics arrive alone, combine, then test mastery.', time: '3–20 min each', ranked: false },
-    { id: 'daily', name: 'Daily Vein', desc: 'One shared seed and ruleset per UTC day. Everyone digs the same mine.', time: '15 min cap', ranked: true },
-    { id: 'practice', name: 'Practice', desc: 'Free play at your chosen difficulty. Restart and undo allowed. Unranked.', time: 'endless', ranked: false },
-    { id: 'challenge', name: 'Challenge', desc: 'Constrained shifts: move limits, speed targets, restricted tools.', time: '10–25 min', ranked: false },
-    { id: 'score', name: 'Score Chase', desc: 'Chase the boards — daily and all-time, global or friends.', time: '—', ranked: true }
+    { id: 'learn', name: N('Learn'), desc: N('Interactive lessons. One rule at a time — you perform every action.'), time: N('2–4 min each'), ranked: false },
+    { id: 'journey', name: N('Journey'), desc: N('40 authored stages. New mechanics arrive alone, combine, then test mastery.'), time: N('3–20 min each'), ranked: false },
+    { id: 'daily', name: N('Daily Vein'), desc: N('One shared seed and ruleset per UTC day. Everyone digs the same mine.'), time: N('15 min cap'), ranked: true },
+    { id: 'practice', name: N('Practice'), desc: N('Free play at your chosen difficulty. Restart and undo allowed. Unranked.'), time: N('endless'), ranked: false },
+    { id: 'challenge', name: N('Challenge'), desc: N('Constrained shifts: move limits, speed targets, restricted tools.'), time: N('10–25 min'), ranked: false },
+    { id: 'score', name: N('Score Chase'), desc: N('Chase the boards — daily and all-time, global or friends.'), time: '—', ranked: true }
   ];
   function buildModeGrid() {
     var grid = $('mode-grid');
     grid.innerHTML = '';
     MODES.forEach(function (m) {
       var card = el('button', 'card');
-      card.appendChild(el('h3', null, m.name));
-      card.appendChild(el('p', null, m.desc));
+      card.appendChild(el('h3', null, T(m.name)));
+      card.appendChild(el('p', null, T(m.desc)));
       var badges = el('p');
-      badges.appendChild(el('span', 'badge ' + (m.ranked ? 'ranked' : 'casual'), m.ranked ? 'ranked' : 'casual'));
-      badges.appendChild(el('span', 'badge', m.time));
+      badges.appendChild(el('span', 'badge ' + (m.ranked ? 'ranked' : 'casual'), m.ranked ? T('ranked') : T('casual')));
+      badges.appendChild(el('span', 'badge', T(m.time)));
       card.appendChild(badges);
       card.addEventListener('click', function () {
         H.audio('ui_click');
@@ -177,7 +181,10 @@
 
   // ---------------------------------------------------------------- setup ---
   // Mode setup shows rules, expected duration, ranked status before commitment.
-  function openSetup(mode, content) {
+  var lastSetup = null;
+  // refresh: re-render the open setup screen (language change) without navigating.
+  function openSetup(mode, content, refresh) {
+    lastSetup = { mode: mode, content: content };
     var panel = $('setup-panel');
     panel.innerHTML = '';
     var st = H.getState();
@@ -188,62 +195,62 @@
       if (contentEntry) {
         var info = el('div', 'action-group');
         var rs = R.mergeRuleset(contentEntry.overrides || {});
-        info.appendChild(kv('Seams', String(rs.layerCount)));
-        info.appendChild(kv('Goal', goalText(contentEntry.goals)));
-        info.appendChild(kv('Time limit', contentEntry.limits && contentEntry.limits.timeSec ? fmtTime(contentEntry.limits.timeSec) : 'none'));
-        info.appendChild(kv('Par', contentEntry.parSec ? fmtTime(contentEntry.parSec) : '—'));
-        info.appendChild(kv('Mechanics', mechanicsText(rs.mechanics)));
-        info.appendChild(kv('Seed', '#' + (contentEntry.seed >>> 0).toString(36)));
+        info.appendChild(kv(T('Seams'), String(rs.layerCount)));
+        info.appendChild(kv(T('Goal'), goalText(contentEntry.goals)));
+        info.appendChild(kv(T('Time limit'), contentEntry.limits && contentEntry.limits.timeSec ? fmtTime(contentEntry.limits.timeSec) : T('none')));
+        info.appendChild(kv(T('Par'), contentEntry.parSec ? fmtTime(contentEntry.parSec) : '—'));
+        info.appendChild(kv(T('Mechanics'), mechanicsText(rs.mechanics)));
+        info.appendChild(kv(T('Seed'), '#' + (contentEntry.seed >>> 0).toString(36)));
         var ranked = mode === 'daily';
         var badgeRow = el('p');
-        badgeRow.appendChild(el('span', 'badge ' + (ranked ? 'ranked' : 'casual'), ranked ? 'ranked — same seed for everyone' : 'casual — unranked'));
+        badgeRow.appendChild(el('span', 'badge ' + (ranked ? 'ranked' : 'casual'), ranked ? T('ranked — same seed for everyone') : T('casual — unranked')));
         info.appendChild(badgeRow);
         panel.appendChild(info);
       }
       if (extraNode) panel.appendChild(extraNode);
       var row = el('div', 'action-row');
-      row.appendChild(btn('Start shift', 'primary', function () { H.startRun(contentEntry, mode); }));
-      row.appendChild(btn('Back', 'ghost', function () { H.audio('ui_back'); back(); }));
+      row.appendChild(btn(T('Start shift'), 'primary', function () { H.startRun(contentEntry, mode); }));
+      row.appendChild(btn(T('Back'), 'ghost', function () { H.audio('ui_back'); back(); }));
       panel.appendChild(row);
     }
 
     if (mode === 'learn') {
-      panel.appendChild(el('h2', null, 'Learn'));
+      panel.appendChild(el('h2', null, T('Learn')));
       var list = el('div', 'card-grid');
       C.LESSONS.forEach(function (ls, i) {
         var doneL = !!p.lessons[ls.id];
         var locked = i > 0 && !p.lessons[C.LESSONS[i - 1].id] && !st.settings.tutorialAnyOrder;
         var card = el('button', 'card');
-        card.appendChild(el('h3', null, (doneL ? '✓ ' : '') + ls.name));
-        card.appendChild(el('p', null, ls.intro));
-        if (locked) { card.disabled = true; card.appendChild(el('p', 'subtle', 'Complete the previous lesson first.')); }
+        card.appendChild(el('h3', null, (doneL ? '✓ ' : '') + T(ls.name)));
+        card.appendChild(el('p', null, T(ls.intro)));
+        if (locked) { card.disabled = true; card.appendChild(el('p', 'subtle', T('Complete the previous lesson first.'))); }
         card.addEventListener('click', function () { H.audio('ui_click'); openSetup('learn-go', ls); });
         list.appendChild(card);
       });
       panel.appendChild(list);
-      panel.appendChild(btn('Back', 'ghost back-btn', function () { H.audio('ui_back'); back(); }));
+      panel.appendChild(btn(T('Back'), 'ghost back-btn', function () { H.audio('ui_back'); back(); }));
     } else if (mode === 'learn-go') {
-      setupShell('Lesson: ' + content.name, lessonToContent(content), el('p', null, content.intro));
+      setupShell(T('Lesson: {name}', { name: T(content.name) }), lessonToContent(content), el('p', null, T(content.intro)));
     } else if (mode === 'daily') {
       var info = C.dailyInfo(root.DWPlatform.dailyDate());
       var played = p.daily[info.key];
       var extra = el('p', played ? 'subtle' : null,
-        played ? ('You already dug today: score ' + R.formatCoins(played.score) + '. You can improve it until the day rolls over.') :
-          'Same seed for everyone today. Your input log is validated server-side when hosted.');
-      setupShell(info.name, info, extra);
+        played ? T('You already dug today: score {score}. You can improve it until the day rolls over.', { score: R.formatCoins(played.score) }) :
+          T('Same seed for everyone today. Your input log is validated server-side when hosted.'));
+      setupShell(T('Daily Vein — {date}', { date: info.key }), info, extra);
     } else if (mode === 'practice') {
-      panel.appendChild(el('h2', null, 'Practice'));
+      panel.appendChild(el('h2', null, T('Practice')));
       var grid = el('div', 'card-grid');
       C.PRACTICE_DIFFICULTIES.forEach(function (d) {
         var card = el('button', 'card');
-        card.appendChild(el('h3', null, d.name));
+        card.appendChild(el('h3', null, T(d.name)));
         card.appendChild(el('p', null, practiceDesc(d.id)));
         var best = p.practice[d.id];
-        if (best) card.appendChild(el('p', 'subtle', 'Best: ' + R.formatCoins(best)));
+        if (best) card.appendChild(el('p', 'subtle', T('Best: {score}', { score: R.formatCoins(best) })));
         card.addEventListener('click', function () {
           H.audio('ui_click');
           openSetup('practice-go', {
-            id: 'practice-' + d.id, name: 'Practice — ' + d.name, version: C.CONTENT_VERSION,
+            id: 'practice-' + d.id, name: 'Practice — ' + d.name, difficulty: d.name, version: C.CONTENT_VERSION,
             seed: (Math.random() * 0xffffffff) >>> 0, theme: H.getState().settings.theme || 'emberdeep',
             overrides: d.overrides, goals: null, limits: null, parSec: 0, endless: true
           });
@@ -251,30 +258,39 @@
         grid.appendChild(card);
       });
       panel.appendChild(grid);
-      panel.appendChild(btn('Back', 'ghost back-btn', function () { H.audio('ui_back'); back(); }));
+      panel.appendChild(btn(T('Back'), 'ghost back-btn', function () { H.audio('ui_back'); back(); }));
     } else if (mode === 'practice-go') {
-      setupShell(content.name, content, el('p', 'subtle', 'Endless. Undo allowed (Z). End the shift from the pause menu to bank your score.'));
+      setupShell(contentName(content), content, el('p', 'subtle', T('Endless. Undo allowed (Z). End the shift from the pause menu to bank your score.')));
     } else if (mode === 'challenge') {
-      panel.appendChild(el('h2', null, 'Challenges'));
+      panel.appendChild(el('h2', null, T('Challenges')));
       var clist = el('div', 'card-grid');
       C.CHALLENGES.forEach(function (ch) {
         var card = el('button', 'card');
-        card.appendChild(el('h3', null, ch.name));
-        card.appendChild(el('p', null, ch.description));
+        card.appendChild(el('h3', null, T(ch.name)));
+        card.appendChild(el('p', null, T(ch.description)));
         var bestc = p.challenges[ch.id];
-        if (bestc) card.appendChild(el('p', 'subtle', 'Best: ' + R.formatCoins(bestc)));
+        if (bestc) card.appendChild(el('p', 'subtle', T('Best: {score}', { score: R.formatCoins(bestc) })));
         card.addEventListener('click', function () { H.audio('ui_click'); openSetup('challenge-go', ch); });
         clist.appendChild(card);
       });
       panel.appendChild(clist);
-      panel.appendChild(btn('Back', 'ghost back-btn', function () { H.audio('ui_back'); back(); }));
+      panel.appendChild(btn(T('Back'), 'ghost back-btn', function () { H.audio('ui_back'); back(); }));
     } else if (mode === 'challenge-go') {
-      setupShell('Challenge: ' + content.name, content, el('p', null, content.description));
+      setupShell(T('Challenge: {name}', { name: T(content.name) }), content, el('p', null, T(content.description)));
     } else if (mode === 'journey-go') {
-      setupShell('Stage ' + content.n + ': ' + content.name, content,
-        el('p', null, content.hint || ''));
+      setupShell(T('Stage {n}: {name}', { n: content.n, name: T(content.name) }), content,
+        el('p', null, content.hint ? T(content.hint) : ''));
     }
-    show('setup');
+    if (!refresh) show('setup');
+  }
+
+  /** Display name of a run's content (journey, lesson, challenge, practice, daily). */
+  function contentName(c) {
+    if (!c) return '';
+    if (c.difficulty) return T('Practice — {difficulty}', { difficulty: T(c.difficulty) });
+    if (c.key && /^daily/.test(c.id || '')) return T('Daily Vein — {date}', { date: c.key });
+    if (c.n) return T('Stage {n}: {name}', { n: c.n, name: T(c.name) });
+    return T(c.name || c.id);
   }
 
   function lessonToContent(ls) {
@@ -285,26 +301,26 @@
     };
   }
   function practiceDesc(id) {
-    return {
-      prospector: 'Gentle start: extra credits, cheap hires, two open seams.',
-      miner: 'The standard ruleset, from scratch.',
-      foreman: 'Tighter: pricier labour and unlocks, weaker lift.',
-      overseer: 'Brutal: minimal crew, expensive everything, six sealed seams.'
-    }[id] || '';
+    return T({
+      prospector: N('Gentle start: extra credits, cheap hires, two open seams.'),
+      miner: N('The standard ruleset, from scratch.'),
+      foreman: N('Tighter: pricier labour and unlocks, weaker lift.'),
+      overseer: N('Brutal: minimal crew, expensive everything, six sealed seams.')
+    }[id] || '');
   }
   function goalText(g) {
-    if (!g) return 'Endless — bank your score when you like';
-    if (g.type === 'earn') return 'Earn ' + R.formatCoins(g.amount) + ' credits';
-    if (g.type === 'depth') return 'Unlock ' + g.amount + ' layers';
-    if (g.type === 'rate') return 'Reach ' + R.formatOre(g.amount) + ' ore/s extraction';
+    if (!g) return T('Endless — bank your score when you like');
+    if (g.type === 'earn') return T('Earn {amount} credits', { amount: R.formatCoins(g.amount) });
+    if (g.type === 'depth') return T('Unlock {n} layers', { n: g.amount });
+    if (g.type === 'rate') return T('Reach {rate} ore/s extraction', { rate: R.formatOre(g.amount) });
     return '—';
   }
   function mechanicsText(m) {
     var out = [];
-    out.push(m.lift ? 'lift' : 'no lift upgrades');
-    if (m.flares) out.push('flares');
-    if (m.foreman) out.push('foreman');
-    if (!m.shaftUpgrades) out.push('no shaft upgrades');
+    out.push(m.lift ? T('lift') : T('no lift upgrades'));
+    if (m.flares) out.push(T('flares'));
+    if (m.foreman) out.push(T('foreman'));
+    if (!m.shaftUpgrades) out.push(T('no shaft upgrades'));
     return out.join(' · ');
   }
 
@@ -326,31 +342,32 @@
       node.classList.toggle('current', i === firstIncomplete);
       node.appendChild(el('span', null, String(s.n)));
       node.appendChild(el('span', 'stars', rec ? '★'.repeat(rec.stars) + '☆'.repeat(3 - rec.stars) : ''));
-      node.title = s.name + (locked ? ' (complete the previous stage)' : '');
-      node.setAttribute('aria-label', 'Stage ' + s.n + ' ' + s.name + (rec ? ', completed, ' + rec.stars + ' stars' : locked ? ', locked' : ''));
+      node.title = T(s.name) + (locked ? ' ' + T('(complete the previous stage)') : '');
+      node.setAttribute('aria-label', rec ? T('Stage {n} {name}, completed, {stars} stars', { n: s.n, name: T(s.name), stars: rec.stars })
+        : T(locked ? 'Stage {n} {name}, locked' : 'Stage {n} {name}', { n: s.n, name: T(s.name) }));
       if (!locked) node.addEventListener('click', function () { H.audio('ui_click'); openSetup('journey-go', s); });
       else node.disabled = true;
       grid.appendChild(node);
     });
-    $('journey-summary').textContent = done + ' of ' + C.JOURNEY.length + ' stages complete · ' +
-      stars + ' of ' + (C.JOURNEY.length * 3) + ' stars';
+    $('journey-summary').textContent = T('{done} of {total} stages complete · {stars} of {maxStars} stars', {
+      done: done, total: C.JOURNEY.length, stars: stars, maxStars: C.JOURNEY.length * 3 });
   }
 
   // --------------------------------------------------------------- boards ---
   function buildBoards() {
     var panel = $('boards-panel');
     panel.innerHTML = '';
-    panel.appendChild(el('h2', null, 'Leaderboards'));
+    panel.appendChild(el('h2', null, T('Leaderboards')));
     var st = H.getState();
     var note = el('p', 'subtle', st.platform.hosted ?
-      'StarHermit high-score board: Journey, Daily and Challenge run scores.' :
-      'Offline mode: boards are local to this device and marked casual.');
+      T('StarHermit high-score board: Journey, Daily and Challenge run scores.') :
+      T('Offline mode: boards are local to this device and marked casual.'));
     panel.appendChild(note);
 
     var tabs = el('div', 'action-row');
     var body = el('div');
     (st.platform.hosted ? ['high-score'] : ['daily', 'global']).forEach(function (board, i) {
-      var t = btn(board === 'daily' ? 'Daily' : board === 'global' ? 'All-time' : 'High score', i === 0 ? 'selected' : 'ghost', function () {
+      var t = btn(board === 'daily' ? T('Daily') : board === 'global' ? T('All-time') : T('High score'), i === 0 ? 'selected' : 'ghost', function () {
         tabs.querySelectorAll('.btn').forEach(function (x) { x.className = 'btn ghost'; });
         t.className = 'btn selected';
         loadBoard(board, body);
@@ -359,23 +376,25 @@
     });
     panel.appendChild(tabs);
     panel.appendChild(body);
-    panel.appendChild(btn('Back', 'ghost back-btn', function () { H.audio('ui_back'); back(); }));
+    panel.appendChild(btn(T('Back'), 'ghost back-btn', function () { H.audio('ui_back'); back(); }));
     loadBoard(st.platform.hosted ? 'high-score' : 'daily', body);
   }
   function loadBoard(board, body) {
     body.innerHTML = '';
-    body.appendChild(el('p', 'subtle', 'Loading…'));
+    body.appendChild(el('p', 'subtle', T('Loading…')));
     root.DWPlatform.getBoard(board).then(function (res) {
       body.innerHTML = '';
-      if (res.casual) body.appendChild(el('p', 'subtle', 'Casual board (no server validation).'));
-      if (!res.entries || !res.entries.length) { body.appendChild(el('p', null, 'No entries yet. Be the first.')); return; }
+      if (res.casual) body.appendChild(el('p', 'subtle', T('Casual board (no server validation).')));
+      if (!res.entries || !res.entries.length) { body.appendChild(el('p', null, T('No entries yet. Be the first.'))); return; }
       var table = el('table', 'board');
-      table.innerHTML = '<thead><tr><th>#</th><th>Prospector</th><th>Score</th><th>Duration</th></tr></thead>';
+      var head = el('thead'), hr = el('tr');
+      ['#', T('Prospector'), T('Score'), T('Duration')].forEach(function (h) { hr.appendChild(el('th', null, h)); });
+      head.appendChild(hr); table.appendChild(head);
       var tb = el('tbody');
       var me = H.getState().profile.displayName;
       res.entries.slice(0, 25).forEach(function (e2, i) {
         var tr = el('tr', (e2.me != null ? e2.me : e2.name === me) ? 'me' : null);
-        [String(e2.rank || i + 1), e2.name || 'Anonymous', R.formatCoins(e2.score), e2.durationSec != null ? fmtTime(e2.durationSec) : '—']
+        [String(e2.rank || i + 1), e2.name || T('Anonymous'), R.formatCoins(e2.score), e2.durationSec != null ? fmtTime(e2.durationSec) : '—']
           .forEach(function (v) { tr.appendChild(el('td', null, v)); });
         tb.appendChild(tr);
       });
@@ -393,15 +412,15 @@
     var km = {};
     ['assign', 'unassign', 'hire', 'shaft', 'liftCap', 'liftSpeed', 'unlock', 'flare', 'foreman', 'undo', 'up', 'down', 'pause'].forEach(function (a) { km[a] = st.keyLabel(a); });
     var cards = [
-      ['The loop', 'Workers dig ore into bins. The lift hauls ore to the surface and sells it for credits. Credits buy workers, shaft upgrades, lift upgrades and deeper seams. Find the bottleneck, fix it, automate.'],
-      ['Workers', 'Assign (' + km.assign + ') moves an idle worker to the selected layer. Unassign (' + km.unassign + ') pulls one back. Hire (' + km.hire + ') adds a new worker — they arrive idle.'],
-      ['Shafts', 'Upgrading a layer\'s shaft (' + km.shaft + ') raises its extraction rate and its ore bin capacity.'],
-      ['Transport', 'Ore only earns when the lift moves it. Upgrade capacity (' + km.liftCap + ') for bigger loads and speed (' + km.liftSpeed + ') for shorter cycles. A full bin stalls digging — the gauge turns red.'],
-      ['Deeper seams', 'Unlock (' + km.unlock + ') the next sealed layer. Deeper ore is richer per worker and sells for more — but it all rides the same lift.'],
-      ['Seam flares', 'Occasionally a seam flares bright. Claim it (' + km.flare + ') before it fades for an instant payout. Flare timing comes from the run seed — it is identical for everyone on a daily.'],
-      ['The Foreman', 'A one-time purchase that automates routine: assigns idle workers and buys bottleneck fixes on a fixed cadence. You keep strategy; it keeps the floor.'],
-      ['Fair play', 'All randomness is seeded and inspectable. No purchases affect power. Practice allows undo (' + km.undo + '); ranked modes never do.'],
-      ['Controls', 'Pointer/touch: tap a layer to select, then use the Foreman\'s Panel. Keyboard: ' + km.up + '/' + km.down + ' select layer, ' + km.assign + ' assign, ' + km.pause + ' pause. Gamepad: D-pad select, A confirm, B back, Start pause.']
+      [T('The loop'), T('Workers dig ore into bins. The lift hauls ore to the surface and sells it for credits. Credits buy workers, shaft upgrades, lift upgrades and deeper seams. Find the bottleneck, fix it, automate.')],
+      [T('Workers'), T('Assign ({assign}) moves an idle worker to the selected layer. Unassign ({unassign}) pulls one back. Hire ({hire}) adds a new worker — they arrive idle.', km)],
+      [T('Shafts'), T("Upgrading a layer's shaft ({shaft}) raises its extraction rate and its ore bin capacity.", km)],
+      [T('Transport'), T('Ore only earns when the lift moves it. Upgrade capacity ({liftCap}) for bigger loads and speed ({liftSpeed}) for shorter cycles. A full bin stalls digging — the gauge turns red.', km)],
+      [T('Deeper seams'), T('Unlock ({unlock}) the next sealed layer. Deeper ore is richer per worker and sells for more — but it all rides the same lift.', km)],
+      [T('Seam flares'), T('Occasionally a seam flares bright. Claim it ({flare}) before it fades for an instant payout. Flare timing comes from the run seed — it is identical for everyone on a daily.', km)],
+      [T('The Foreman'), T('A one-time purchase that automates routine: assigns idle workers and buys bottleneck fixes on a fixed cadence. You keep strategy; it keeps the floor.')],
+      [T('Fair play'), T('All randomness is seeded and inspectable. No purchases affect power. Practice allows undo ({undo}); ranked modes never do.', km)],
+      [T('Controls'), T("Pointer/touch: tap a layer to select, then use the Foreman's Panel. Keyboard: {up}/{down} select layer, {assign} assign, {pause} pause. Gamepad: D-pad select, A confirm, B back, Start pause.", km)]
     ];
     cards.forEach(function (c) {
       var card = el('div', 'card');
@@ -410,89 +429,94 @@
       card.appendChild(el('p', null, c[1]));
       body.appendChild(card);
     });
-    var nar = btn('Describe the current mine aloud', 'ghost small', function () {
+    var nar = btn(T('Describe the current mine aloud'), 'ghost small', function () {
       var s = H.getState();
-      if (s.run) announce(R.describeState(s.run.state), true);
-      else announce('No shift in progress.', true);
+      if (s.run) announce(R.describeState(s.run.state, T), true);
+      else announce(T('No shift in progress.'), true);
     });
     body.appendChild(nar);
   }
 
   // -------------------------------------------------------------- profile ---
   var ACHIEVEMENTS = [
-    { key: 'first_completion', name: 'First Shift Done', desc: 'Complete any stage or lesson.' },
-    { key: 'mechanic_mastery', name: 'Every Lever', desc: 'Complete all five lessons.' },
-    { key: 'streak_7', name: 'Seven Suns Down', desc: 'Dig the Daily Vein on 7 different days.' },
-    { key: 'deep_milestone', name: 'Bottom of the Works', desc: 'Open the sixth seam in any run.' },
-    { key: 'long_haul', name: 'The Long Haul', desc: 'Earn 10,000,000 credits across your career.' }
+    { key: 'first_completion', name: N('First Shift Done'), desc: N('Complete any stage or lesson.') },
+    { key: 'mechanic_mastery', name: N('Every Lever'), desc: N('Complete all five lessons.') },
+    { key: 'streak_7', name: N('Seven Suns Down'), desc: N('Dig the Daily Vein on 7 different days.') },
+    { key: 'deep_milestone', name: N('Bottom of the Works'), desc: N('Open the sixth seam in any run.') },
+    { key: 'long_haul', name: N('The Long Haul'), desc: N('Earn 10,000,000 credits across your career.') }
   ];
   function buildProfile() {
     var panel = $('profile-panel');
     panel.innerHTML = '';
     var st = H.getState();
     var p = st.profile;
-    panel.appendChild(el('h2', null, 'Profile'));
+    panel.appendChild(el('h2', null, T('Profile')));
     var nameRow = el('div', 'set-row');
     var nameInput = el('input');
     nameInput.type = 'text'; nameInput.value = p.displayName; nameInput.maxLength = 24;
-    nameInput.setAttribute('aria-label', 'Display name');
+    nameInput.setAttribute('aria-label', T('Display name'));
     if (st.platform.hosted) nameInput.disabled = true; // account nickname; offline fallback stays editable
     nameRow.appendChild(nameInput);
-    nameRow.appendChild(btn('Save', 'small', function () {
+    nameRow.appendChild(btn(T('Save'), 'small', function () {
       H.setDisplayName(nameInput.value.trim() || 'Guest Prospector');
-      toast('Name saved', 'good');
+      toast(T('Name saved'), 'good');
     }));
     panel.appendChild(nameRow);
 
     var ml = root.DWSession.masteryLevelFor(p.mastery.xp);
-    panel.appendChild(el('h3', null, 'Mastery — level ' + ml.level));
+    panel.appendChild(el('h3', null, T('Mastery — level {n}', { n: ml.level })));
     var m = el('div', 'meter big'); var mf = el('div');
     mf.style.width = Math.floor((ml.into / ml.next) * 100) + '%';
     m.appendChild(mf); panel.appendChild(m);
-    panel.appendChild(el('p', 'subtle', ml.into + ' / ' + ml.next + ' xp'));
+    panel.appendChild(el('p', 'subtle', T('{into} / {next} xp', { into: ml.into, next: ml.next })));
 
-    panel.appendChild(el('h3', null, 'Career'));
-    panel.appendChild(kv('Shifts played', String(p.stats.runsPlayed)));
-    panel.appendChild(kv('Career earnings', R.formatCoins(p.stats.totalEarned)));
-    panel.appendChild(kv('Flares claimed', String(p.stats.flaresClaimed)));
-    panel.appendChild(kv('Time underground', fmtTime(p.stats.playtimeSec)));
+    panel.appendChild(el('h3', null, T('Career')));
+    panel.appendChild(kv(T('Shifts played'), String(p.stats.runsPlayed)));
+    panel.appendChild(kv(T('Career earnings'), R.formatCoins(p.stats.totalEarned)));
+    panel.appendChild(kv(T('Flares claimed'), String(p.stats.flaresClaimed)));
+    panel.appendChild(kv(T('Time underground'), fmtTime(p.stats.playtimeSec)));
 
-    panel.appendChild(el('h3', null, 'Achievements'));
+    panel.appendChild(el('h3', null, T('Achievements')));
     ACHIEVEMENTS.forEach(function (a) {
       var row = el('div', 'set-row');
       var got = !!p.achievements[a.key];
-      row.appendChild(el('span', null, (got ? '★ ' : '☆ ') + a.name));
-      row.appendChild(el('span', 'subtle', a.desc));
+      row.appendChild(el('span', null, (got ? '★ ' : '☆ ') + T(a.name)));
+      row.appendChild(el('span', 'subtle', T(a.desc)));
       panel.appendChild(row);
     });
 
     if (!st.platform.hosted) {
-      panel.appendChild(el('p', 'subtle', 'Guest mode: sign-in is offered by the host shell when Deepworks is played hosted.'));
+      panel.appendChild(el('p', 'subtle', T('Guest mode: sign-in is offered by the host shell when Deepworks is played hosted.')));
     }
-    panel.appendChild(btn('Back', 'ghost back-btn', function () { H.audio('ui_back'); back(); }));
+    panel.appendChild(btn(T('Back'), 'ghost back-btn', function () { H.audio('ui_back'); back(); }));
   }
 
   // -------------------------------------------------------------- settings ---
-  function openSettings(inPause) {
+  var settingsInPause = false;
+  // refresh: rebuild the game's own panel (language change) without navigating.
+  // Only #settings-panel is rebuilt; the shared Language / Sound / Report
+  // sections that game-options.js appends to the settings screen stay.
+  function openSettings(inPause, refresh) {
+    settingsInPause = !!inPause;
     var panel = $('settings-panel');
     panel.innerHTML = '';
     var st = H.getState();
     var s = st.settings;
 
-    panel.appendChild(el('h2', null, inPause ? 'Paused' : 'Settings'));
+    panel.appendChild(el('h2', null, inPause ? T('Paused') : T('Settings')));
     if (inPause) {
       var row0 = el('div', 'action-row');
-      row0.appendChild(btn('Resume', 'primary', function () { H.resume(); }));
-      row0.appendChild(btn('Restart shift', 'ghost', function () {
-        confirmModal('Restart this shift from the beginning?', function () { H.restartRun(); });
+      row0.appendChild(btn(T('Resume'), 'primary', function () { H.resume(); }));
+      row0.appendChild(btn(T('Restart shift'), 'ghost', function () {
+        confirmModal(T('Restart this shift from the beginning?'), function () { H.restartRun(); });
       }));
       if (st.run && st.run.mode === 'practice') {
-        row0.appendChild(btn('End shift & bank score', 'ghost', function () {
-          confirmModal('End this shift and bank your score?', function () { H.endRun(); });
+        row0.appendChild(btn(T('End shift & bank score'), 'ghost', function () {
+          confirmModal(T('End this shift and bank your score?'), function () { H.endRun(); });
         }));
       }
-      row0.appendChild(btn('Leave shift', 'ghost', function () {
-        confirmModal('Leave the shift? Progress in this run will be lost.', function () { H.leaveRun(); });
+      row0.appendChild(btn(T('Leave shift'), 'ghost', function () {
+        confirmModal(T('Leave the shift? Progress in this run will be lost.'), function () { H.leaveRun(); });
       }));
       panel.appendChild(row0);
     }
@@ -533,60 +557,59 @@
       g.appendChild(row);
     }
 
-    var ga = group('Audio');
-    slider(ga, 'Music', 'volMusic', 0, 1, 0.05);
-    slider(ga, 'Effects', 'volEffects', 0, 1, 0.05);
-    slider(ga, 'Ambience', 'volAmbience', 0, 1, 0.05);
-    slider(ga, 'Voice cues', 'volVoice', 0, 1, 0.05);
-    toggle(ga, 'Mute all', 'muted');
-    toggle(ga, 'Text captions for sounds', 'captions');
+    var ga = group(T('Audio'));
+    slider(ga, T('Music'), 'volMusic', 0, 1, 0.05);
+    slider(ga, T('Effects'), 'volEffects', 0, 1, 0.05);
+    slider(ga, T('Ambience'), 'volAmbience', 0, 1, 0.05);
+    slider(ga, T('Voice cues'), 'volVoice', 0, 1, 0.05);
+    toggle(ga, T('Mute all'), 'muted');
+    toggle(ga, T('Text captions for sounds'), 'captions');
 
-    var gg = group(GFX.t(GFX.pickLocale(navigator.language), 'graphics'));
+    var gg = group(GFX.t(gfxLocale(), 'graphics'));
     gg.id = 'gfx-section';
     buildGraphics(gg, s);
-    select(gg, 'Mine theme', 'theme', C.THEMES.map(function (t) { return [t.id, t.name]; }));
-    toggle(gg, 'Reduced motion', 'reducedMotion');
-    toggle(gg, 'Camera sway', 'cameraSway');
+    select(gg, T('Mine theme'), 'theme', C.THEMES.map(function (t) { return [t.id, T(t.name)]; }));
+    toggle(gg, T('Reduced motion'), 'reducedMotion');
+    toggle(gg, T('Camera sway'), 'cameraSway');
 
-    var gc = group('Controls');
-    toggle(gc, 'Hold to repeat assign', 'holdRepeat');
-    toggle(gc, 'Left-handed layout', 'leftHanded');
-    toggle(gc, 'Haptics (vibration)', 'haptics');
-    gc.appendChild(el('p', 'subtle', 'Keys: ↑/↓ select layer · Enter assign · ' +
-      'U unassign · H hire · Q shaft · W lift capacity · E lift speed · D unlock · F flare · G foreman · Z undo · Esc pause.'));
+    var gc = group(T('Controls'));
+    toggle(gc, T('Hold to repeat assign'), 'holdRepeat');
+    toggle(gc, T('Left-handed layout'), 'leftHanded');
+    toggle(gc, T('Haptics (vibration)'), 'haptics');
+    gc.appendChild(el('p', 'subtle', T('Keys: ↑/↓ select layer · Enter assign · U unassign · H hire · Q shaft · W lift capacity · E lift speed · D unlock · F flare · G foreman · Z undo · Esc pause.')));
 
-    var gx = group('Accessibility');
-    toggle(gx, 'High contrast', 'highContrast');
-    toggle(gx, 'Larger text', 'largeText');
-    select(gx, 'Color palette', 'palette', [['default', 'Default'], ['deuter', 'Deuteranopia-safe'], ['protan', 'Protanopia-safe'], ['tritan', 'Tritanopia-safe']]);
-    toggle(gx, 'Timing assistance (longer flares — not in the ranked daily)', 'timingAssist');
+    var gx = group(T('Accessibility'));
+    toggle(gx, T('High contrast'), 'highContrast');
+    toggle(gx, T('Larger text'), 'largeText');
+    select(gx, T('Color palette'), 'palette', [['default', T('Default')], ['deuter', T('Deuteranopia-safe')], ['protan', T('Protanopia-safe')], ['tritan', T('Tritanopia-safe')]]);
+    toggle(gx, T('Timing assistance (longer flares — not in the ranked daily)'), 'timingAssist');
     var replayRow = el('div', 'set-row');
-    replayRow.appendChild(el('label', null, 'Tutorial'));
-    replayRow.appendChild(btn('Replay lessons', 'small ghost', function () { openSetup('learn'); }));
+    replayRow.appendChild(el('label', null, T('Tutorial')));
+    replayRow.appendChild(btn(T('Replay lessons'), 'small ghost', function () { openSetup('learn'); }));
     gx.appendChild(replayRow);
 
-    var gd = group('Data');
-    toggle(gd, 'Anonymous usage stats (start / round end / errors only)', 'telemetry');
+    var gd = group(T('Data'));
+    toggle(gd, T('Anonymous usage stats (start / round end / errors only)'), 'telemetry');
     var wipe = el('div', 'set-row');
-    wipe.appendChild(el('label', null, 'Local data'));
-    wipe.appendChild(btn('Erase profile', 'small ghost', function () {
-      confirmModal('Erase all local progress, settings and unlocks?', function () { H.wipeProfile(); });
+    wipe.appendChild(el('label', null, T('Local data')));
+    wipe.appendChild(btn(T('Erase profile'), 'small ghost', function () {
+      confirmModal(T('Erase all local progress, settings and unlocks?'), function () { H.wipeProfile(); });
     }));
     gd.appendChild(wipe);
 
-    panel.appendChild(btn(inPause ? 'Resume' : 'Back', 'ghost back-btn', function () {
+    panel.appendChild(btn(inPause ? T('Resume') : T('Back'), 'ghost back-btn', function () {
       H.audio('ui_back');
       if (inPause) H.resume(); else back();
     }));
-    show('settings');
+    if (!refresh) show('settings');
   }
 
   // Graphics section: quality preset, render scale, per-effect overrides,
-  // adaptive resolution, frame-rate readout and a cost summary. Strings are
-  // localized from navigator.language (js/gfx.js STRINGS).
+  // adaptive resolution, frame-rate readout and a cost summary. Strings follow
+  // the game language (js/gfx.js STRINGS, locale from js/i18n.js).
   function buildGraphics(host, s) {
-    var loc = GFX.pickLocale(navigator.language);
-    var T = function (k, v) { return GFX.t(loc, k, v); };
+    var loc = gfxLocale();
+    var G = function (k, v) { return GFX.t(loc, k, v); };
     var box = el('div', 'gfx-box');
     host.appendChild(box);
     var summary, note;
@@ -595,8 +618,8 @@
     function updateSummary() {
       var info = H.graphicsInfo && H.graphicsInfo();
       if (!summary) return;
-      if (!info) { summary.textContent = T('post_unavailable'); return; }
-      summary.textContent = (info.gpu || T('unknown_gpu')) + ' · ' + GFX.describe(info.resolved, info.pixels, loc);
+      if (!info) { summary.textContent = G('post_unavailable'); return; }
+      summary.textContent = (info.gpu || G('unknown_gpu')) + ' · ' + GFX.describe(info.resolved, info.pixels, loc);
       note.hidden = !(info.resolved.post && info.postError);
     }
     function row(label, id, control, extra) {
@@ -628,8 +651,8 @@
       var detected = info ? info.detected : 'balanced';
       var r = GFX.resolve(gs, detected);
 
-      var presetSel = row(T('quality'), 'gfx-preset', selectEl(
-        [['auto', T('auto', { t: T('p_' + detected) })]].concat(GFX.PRESETS.map(function (p) { return [p, T('p_' + p)]; })),
+      var presetSel = row(G('quality'), 'gfx-preset', selectEl(
+        [['auto', G('auto', { t: G('p_' + detected) })]].concat(GFX.PRESETS.map(function (p) { return [p, G('p_' + p)]; })),
         r.auto ? 'auto' : r.preset));
       presetSel.addEventListener('change', function () {
         s.gfx = GFX.choosePreset(s.gfx, presetSel.value); // clears overrides
@@ -643,7 +666,7 @@
       scale.value = Math.round(r.renderScale * 100);
       var val = el('span', 'gfx-val', scale.value + '%');
       val.id = 'gfx-scale-val';
-      row(T('render_scale'), 'gfx-scale', scale, val).parentNode.classList.add('gfx-range');
+      row(G('render_scale'), 'gfx-scale', scale, val).parentNode.classList.add('gfx-range');
       scale.addEventListener('input', function () {
         val.textContent = scale.value + '%';
         s.gfx.render_scale = Number(scale.value) / 100;
@@ -652,9 +675,9 @@
 
       GFX.CATEGORY_ORDER.forEach(function (cat) {
         var own = GFX.presetTier(r.preset, cat);
-        var opts = [['preset', T('from_preset', { t: T('t_' + own) })]].concat(
-          GFX.CATEGORIES[cat].map(function (tier) { return [tier, T('t_' + tier)]; }));
-        var sel = row(T('c_' + cat), 'gfx-cat-' + cat, selectEl(opts, gs[cat] && GFX.CATEGORIES[cat].indexOf(gs[cat]) >= 0 ? gs[cat] : 'preset'));
+        var opts = [['preset', G('from_preset', { t: G('t_' + own) })]].concat(
+          GFX.CATEGORIES[cat].map(function (tier) { return [tier, G('t_' + tier)]; }));
+        var sel = row(G('c_' + cat), 'gfx-cat-' + cat, selectEl(opts, gs[cat] && GFX.CATEGORIES[cat].indexOf(gs[cat]) >= 0 ? gs[cat] : 'preset'));
         sel.dataset.gfxCat = cat;
         sel.addEventListener('change', function () {
           if (sel.value === 'preset') delete s.gfx[cat]; else s.gfx[cat] = sel.value;
@@ -662,16 +685,16 @@
         });
       });
 
-      var adaptive = row(T('adaptive'), 'gfx-adaptive', checkEl(r.adaptive));
+      var adaptive = row(G('adaptive'), 'gfx-adaptive', checkEl(r.adaptive));
       adaptive.addEventListener('change', function () { s.gfx.adaptive = adaptive.checked; commit(); });
-      var fps = row(T('show_fps'), 'gfx-show-fps', checkEl(r.showFps));
+      var fps = row(G('show_fps'), 'gfx-show-fps', checkEl(r.showFps));
       fps.addEventListener('change', function () { s.gfx.show_fps = fps.checked; commit(); });
 
       summary = el('p', 'subtle gfx-summary');
       summary.id = 'gfx-summary';
       summary.setAttribute('aria-live', 'polite');
       box.appendChild(summary);
-      note = el('p', 'subtle gfx-note', T('post_unavailable'));
+      note = el('p', 'subtle gfx-note', G('post_unavailable'));
       note.id = 'gfx-note';
       note.hidden = true;
       box.appendChild(note);
@@ -686,8 +709,12 @@
   }
 
   // -------------------------------------------------------------- results ---
-  function showResults(data) {
+  var lastResults = null;
+  // refresh: re-render the open results screen (language change) without
+  // re-announcing or re-posting anything.
+  function showResults(data, refresh) {
     // data: {run, content, mode, won, reason, score, stars, newBest, achievements:[names], awaySummary?}
+    lastResults = data;
     var panel = $('results-panel');
     panel.innerHTML = '';
     var won = data.won && data.reason !== 'player-ended';
@@ -698,57 +725,60 @@
     art.addEventListener('error', function () { art.style.display = 'none'; });
     panel.appendChild(art);
     var head = el('h2', won ? 'result-head-win' : 'result-head-lose',
-      won ? 'Objective complete' : (data.reason === 'time-up' ? 'Time is up' : data.reason === 'moves-exhausted' ? 'Out of moves' : 'Shift ended'));
+      won ? T('Objective complete') : (data.reason === 'time-up' ? T('Time is up') : data.reason === 'moves-exhausted' ? T('Out of moves') : T('Shift ended')));
     panel.appendChild(head);
-    panel.appendChild(el('p', 'subtle', data.content.name || data.content.id));
+    panel.appendChild(el('p', 'subtle', contentName(data.content)));
 
     if (data.stars) panel.appendChild(el('div', 'stars-big', '★'.repeat(data.stars) + '☆'.repeat(3 - data.stars)));
     panel.appendChild(el('div', 'score-big', R.formatCoins(data.score.total)));
-    panel.appendChild(el('p', 'subtle', 'final score'));
+    panel.appendChild(el('p', 'subtle', T('final score')));
 
     var bd = el('div', 'breakdown');
-    bd.appendChild(el('h3', null, 'Score breakdown'));
+    bd.appendChild(el('h3', null, T('Score breakdown')));
     var comp = data.score.components;
-    bd.appendChild(kv('Ore sold', R.formatCoins(comp.earned)));
-    bd.appendChild(kv('Seam flares', R.formatCoins(comp.flares)));
-    bd.appendChild(kv('Depth bonus', R.formatCoins(comp.depthBonus)));
-    bd.appendChild(kv('Time bonus', R.formatCoins(comp.timeBonus)));
-    bd.appendChild(kv('Lift efficiency', (comp.efficiencyPermille / 10).toFixed(1) + '%'));
-    bd.appendChild(kv('Elapsed', fmtTime(data.run.result.tick)));
-    bd.appendChild(kv('Commands / invalid', data.run.result.moves + ' / ' + data.run.result.invalid));
+    bd.appendChild(kv(T('Ore sold'), R.formatCoins(comp.earned)));
+    bd.appendChild(kv(T('Seam flares'), R.formatCoins(comp.flares)));
+    bd.appendChild(kv(T('Depth bonus'), R.formatCoins(comp.depthBonus)));
+    bd.appendChild(kv(T('Time bonus'), R.formatCoins(comp.timeBonus)));
+    bd.appendChild(kv(T('Lift efficiency'), (comp.efficiencyPermille / 10).toFixed(1) + '%'));
+    bd.appendChild(kv(T('Elapsed'), fmtTime(data.run.result.tick)));
+    bd.appendChild(kv(T('Commands / invalid'), data.run.result.moves + ' / ' + data.run.result.invalid));
     panel.appendChild(bd);
 
-    if (data.newBest) panel.appendChild(el('p', null, '★ New personal best!'));
+    if (data.newBest) panel.appendChild(el('p', null, T('★ New personal best!')));
     if (data.achievements && data.achievements.length) {
-      panel.appendChild(el('p', null, 'Achievement unlocked: ' + data.achievements.join(', ')));
+      panel.appendChild(el('p', null, T('Achievement unlocked: {name}', { name: data.achievements.map(function (n) { return T(n); }).join(', ') })));
     }
     if (data.boardResult) {
-      panel.appendChild(el('p', 'subtle', data.boardResult));
+      panel.appendChild(el('p', 'subtle', T(data.boardResult)));
     }
     if (data.leaderboard) {
-      var lbs = data.leaderboard.strings;
-      var lb = el('p', 'subtle', lbs.lbPosting);
+      var lb = el('p', 'subtle');
       lb.id = 'results-lb';
       lb.setAttribute('aria-live', 'polite');
+      var lbText = function () {
+        var r = data.leaderboard.result;
+        lb.textContent = !r ? T('Posting score to the leaderboard…') : !r.posted ? T('Score not posted to the leaderboard.')
+          : r.rank ? T('Leaderboard rank: #{rank}', { rank: r.rank }) : T('Score posted to the leaderboard.');
+      };
+      lbText();
       panel.appendChild(lb);
-      data.leaderboard.promise.then(function (r) {
-        lb.textContent = !r.posted ? lbs.lbNotPosted
-          : r.rank ? lbs.lbRank.replace('{rank}', r.rank) : lbs.lbPosted;
-      });
+      if (!refresh) data.leaderboard.promise.then(function (r) { data.leaderboard.result = r; var cur = $('results-lb'); if (cur) { lb = cur; lbText(); } });
     }
 
     var row = el('div', 'action-row');
     if (data.nextContent) {
-      row.appendChild(btn('Next: ' + data.nextContent.name, 'primary', function () { H.startRun(data.nextContent, data.mode); }));
+      row.appendChild(btn(T('Next: {name}', { name: T(data.nextContent.name) }), 'primary', function () { H.startRun(data.nextContent, data.mode); }));
     }
-    row.appendChild(btn('Retry', data.nextContent ? 'ghost' : 'primary', function () {
+    row.appendChild(btn(T('Retry'), data.nextContent ? 'ghost' : 'primary', function () {
       root.DWPlatform.track('retry', { content: data.content.id });
       H.startRun(data.content, data.mode);
     }));
-    row.appendChild(btn('Shift select', 'ghost', function () { H.leaveToTitle(); }));
+    row.appendChild(btn(T('Shift select'), 'ghost', function () { H.leaveToTitle(); }));
     panel.appendChild(row);
 
-    announce(head.textContent + '. Score ' + R.formatCoins(data.score.total) + '.', true);
+    if (refresh) return;
+    announce(T('{headline}. Score {score}.', { headline: head.textContent, score: R.formatCoins(data.score.total) }), true);
     setScreen('results');
   }
 
@@ -759,13 +789,13 @@
     // model: {state, content, mode, selectedLayer, lessonStep, legal}
     var st = model.state;
     $('res-credits').textContent = R.formatCoins(st.coins);
-    $('res-income').textContent = R.formatCoins(R.incomeRate(st)) + '/s';
+    $('res-income').textContent = T('{n}/s', { n: R.formatCoins(R.incomeRate(st)) });
     $('res-workers').textContent = st.workers.idle + '/' + st.workers.total;
 
     var lim = st.ruleset.limits;
     var timeText = fmtTime(st.tick);
     if (lim && lim.timeSec) timeText = fmtTime(Math.max(0, lim.timeSec - st.tick));
-    $('hud-timer').textContent = timeText + ((lim && lim.moves) ? ' · ' + Math.max(0, lim.moves - st.stats.playerCommands) + ' moves' : '');
+    $('hud-timer').textContent = timeText + ((lim && lim.moves) ? ' · ' + T('{n} moves', { n: Math.max(0, lim.moves - st.stats.playerCommands) }) : '');
 
     // objective
     var g = st.ruleset.goals;
@@ -812,17 +842,17 @@
     var body = $('left-rail-body');
     body.innerHTML = '';
     var st = model.state;
-    body.appendChild(kv('Elapsed', fmtTime(st.tick)));
-    body.appendChild(kv('Depth', R.unlockedCount(st) + ' / ' + st.layers.length + ' seams'));
-    body.appendChild(kv('Extraction', R.formatRate(R.totalExtractionRate(st))));
-    body.appendChild(kv('Lift capacity', R.formatRate(Math.floor(R.liftRate(st)))));
-    body.appendChild(kv('Lifetime earned', R.formatCoins(st.lifetimeEarned)));
+    body.appendChild(kv(T('Elapsed'), fmtTime(st.tick)));
+    body.appendChild(kv(T('Depth'), T('{n} / {total} seams', { n: R.unlockedCount(st), total: st.layers.length })));
+    body.appendChild(kv(T('Extraction'), R.formatRate(R.totalExtractionRate(st))));
+    body.appendChild(kv(T('Lift capacity'), R.formatRate(Math.floor(R.liftRate(st)))));
+    body.appendChild(kv(T('Lifetime earned'), R.formatCoins(st.lifetimeEarned)));
     var g = st.ruleset.goals;
     if (g) {
-      body.appendChild(el('h3', null, 'Goal'));
+      body.appendChild(el('h3', null, T('Goal')));
       body.appendChild(kv(goalText(g), Math.floor((goalFraction(st, g) || 0) * 100) + '%'));
     }
-    if (st.ruleset.parSec) body.appendChild(kv('Par', fmtTime(st.ruleset.parSec)));
+    if (st.ruleset.parSec) body.appendChild(kv(T('Par'), fmtTime(st.ruleset.parSec)));
     var hint = el('p', 'subtle', bottleneckHint(st));
     body.appendChild(hint);
   }
@@ -831,13 +861,13 @@
   function bottleneckHint(st) {
     for (var i = 0; i < st.layers.length; i++) {
       var L = st.layers[i];
-      if (L.unlocked && R.isBlocked(st, i)) return 'Layer ' + (i + 1) + ' bin is full — transport is the bottleneck.';
+      if (L.unlocked && R.isBlocked(st, i)) return T('Layer {n} bin is full — transport is the bottleneck.', { n: i + 1 });
     }
-    if (st.workers.idle > 0) return st.workers.idle + ' idle worker' + (st.workers.idle > 1 ? 's' : '') + ' — assign them to a seam.';
-    if (st.flare.active) return 'A seam is flaring on Layer ' + (st.flare.active.layer + 1) + ' — claim it!';
+    if (st.workers.idle > 0) return st.workers.idle > 1 ? T('{n} idle workers — assign them to a seam.', { n: st.workers.idle }) : T('1 idle worker — assign them to a seam.');
+    if (st.flare.active) return T('A seam is flaring on Layer {n} — claim it!', { n: st.flare.active.layer + 1 });
     var next = R.nextLockedLayer(st);
-    if (next >= 0 && st.coins >= R.unlockCost(st)) return 'You can afford to open Layer ' + (next + 1) + '.';
-    return 'Watch the gauges; upgrade whatever lags.';
+    if (next >= 0 && st.coins >= R.unlockCost(st)) return T('You can afford to open Layer {n}.', { n: next + 1 });
+    return T('Watch the gauges; upgrade whatever lags.');
   }
 
   function actionButton(cmd, label, cost, legal, extra) {
@@ -860,16 +890,16 @@
   }
   function reasonText(reason) {
     var map = {};
-    map[R.REASONS.NO_IDLE_WORKER] = 'No idle workers — hire or unassign first.';
-    map[R.REASONS.LAYER_LOCKED] = 'That layer is still sealed.';
-    map[R.REASONS.WORKER_CAP] = 'This seam is fully crewed.';
-    map[R.REASONS.NO_WORKERS] = 'No workers assigned here.';
-    map[R.REASONS.INSUFFICIENT_FUNDS] = 'Not enough credits.';
-    map[R.REASONS.ALL_UNLOCKED] = 'Every seam is open.';
-    map[R.REASONS.NO_FLARE] = 'No active flare.';
-    map[R.REASONS.MECHANIC_DISABLED] = 'Not available in this ruleset.';
-    map[R.REASONS.ALREADY_OWNED] = 'Already owned.';
-    return map[reason] || reason || '';
+    map[R.REASONS.NO_IDLE_WORKER] = N('No idle workers — hire or unassign first.');
+    map[R.REASONS.LAYER_LOCKED] = N('That layer is still sealed.');
+    map[R.REASONS.WORKER_CAP] = N('This seam is fully crewed.');
+    map[R.REASONS.NO_WORKERS] = N('No workers assigned here.');
+    map[R.REASONS.INSUFFICIENT_FUNDS] = N('Not enough credits.');
+    map[R.REASONS.ALL_UNLOCKED] = N('Every seam is open.');
+    map[R.REASONS.NO_FLARE] = N('No active flare.');
+    map[R.REASONS.MECHANIC_DISABLED] = N('Not available in this ruleset.');
+    map[R.REASONS.ALREADY_OWNED] = N('Already owned.');
+    return T(map[reason] || reason || '');
   }
 
   function findLegal(model, type, layer) {
@@ -889,50 +919,50 @@
     if (sel !== null && st.layers[sel] && st.layers[sel].unlocked) {
       var L = st.layers[sel];
       var gsel = el('div', 'action-group');
-      gsel.appendChild(el('h3', null, 'Layer ' + (sel + 1)));
-      gsel.appendChild(kv('Crew', L.workers + ' / ' + st.ruleset.workerCapPerLayer));
-      gsel.appendChild(kv('Rate', R.formatRate(R.layerRate(st, sel))));
+      gsel.appendChild(el('h3', null, T('Layer {n}', { n: sel + 1 })));
+      gsel.appendChild(kv(T('Crew'), L.workers + ' / ' + st.ruleset.workerCapPerLayer));
+      gsel.appendChild(kv(T('Rate'), R.formatRate(R.layerRate(st, sel))));
       var cap = R.binCapMilli(st, sel);
-      gsel.appendChild(kv('Bin', Math.floor((L.milliOre * 100) / cap) + '%' + (R.isBlocked(st, sel) ? ' — BLOCKED' : '')));
-      gsel.appendChild(kv('Shaft level', String(L.shaftLevel)));
+      gsel.appendChild(kv(T('Bin'), Math.floor((L.milliOre * 100) / cap) + '%' + (R.isBlocked(st, sel) ? ' — ' + T('BLOCKED') : '')));
+      gsel.appendChild(kv(T('Shaft level'), String(L.shaftLevel)));
       var row = el('div', 'action-row');
-      row.appendChild(holdable(actionButton({ type: 'assign', layer: sel }, '+ Assign', null, findLegal(model, 'assign', sel))));
-      row.appendChild(actionButton({ type: 'unassign', layer: sel }, '− Recall', null, findLegal(model, 'unassign', sel)));
+      row.appendChild(holdable(actionButton({ type: 'assign', layer: sel }, T('+ Assign'), null, findLegal(model, 'assign', sel))));
+      row.appendChild(actionButton({ type: 'unassign', layer: sel }, T('− Recall'), null, findLegal(model, 'unassign', sel)));
       gsel.appendChild(row);
       var row2 = el('div', 'action-row');
-      row2.appendChild(actionButton({ type: 'upgrade_shaft', layer: sel }, 'Upgrade shaft', R.shaftCost(st, sel), findLegal(model, 'upgrade_shaft', sel)));
+      row2.appendChild(actionButton({ type: 'upgrade_shaft', layer: sel }, T('Upgrade shaft'), R.shaftCost(st, sel), findLegal(model, 'upgrade_shaft', sel)));
       gsel.appendChild(row2);
       if (st.flare.active && st.flare.active.layer === sel) {
         var rowF = el('div', 'action-row');
-        rowF.appendChild(actionButton({ type: 'claim_flare', layer: sel, id: st.flare.active.id }, '✦ Claim flare', null, findLegal(model, 'claim_flare', sel)));
+        rowF.appendChild(actionButton({ type: 'claim_flare', layer: sel, id: st.flare.active.id }, T('✦ Claim flare'), null, findLegal(model, 'claim_flare', sel)));
         gsel.appendChild(rowF);
       }
       body.appendChild(gsel);
     } else {
-      body.appendChild(el('p', 'subtle', 'Tap a layer in the mine to crew and upgrade it.'));
+      body.appendChild(el('p', 'subtle', T('Tap a layer in the mine to crew and upgrade it.')));
     }
 
     var gg = el('div', 'action-group');
-    gg.appendChild(el('h3', null, 'Mine-wide'));
+    gg.appendChild(el('h3', null, T('Mine-wide')));
     var r1 = el('div', 'action-row');
-    r1.appendChild(actionButton({ type: 'hire' }, 'Hire worker', R.hireCost(st), findLegal(model, 'hire')));
+    r1.appendChild(actionButton({ type: 'hire' }, T('Hire worker'), R.hireCost(st), findLegal(model, 'hire')));
     gg.appendChild(r1);
     var r2 = el('div', 'action-row');
-    r2.appendChild(actionButton({ type: 'upgrade_lift_cap' }, 'Lift capacity', R.liftCapCost(st), findLegal(model, 'upgrade_lift_cap')));
-    r2.appendChild(actionButton({ type: 'upgrade_lift_speed' }, 'Lift speed', R.liftSpeedCost(st), findLegal(model, 'upgrade_lift_speed')));
+    r2.appendChild(actionButton({ type: 'upgrade_lift_cap' }, T('Lift capacity'), R.liftCapCost(st), findLegal(model, 'upgrade_lift_cap')));
+    r2.appendChild(actionButton({ type: 'upgrade_lift_speed' }, T('Lift speed'), R.liftSpeedCost(st), findLegal(model, 'upgrade_lift_speed')));
     gg.appendChild(r2);
     var nextIdx = R.nextLockedLayer(st);
     if (nextIdx >= 0) {
       var r3 = el('div', 'action-row');
-      r3.appendChild(actionButton({ type: 'unlock_layer' }, 'Open Layer ' + (nextIdx + 1), R.unlockCost(st), findLegal(model, 'unlock_layer')));
+      r3.appendChild(actionButton({ type: 'unlock_layer' }, T('Open Layer {n}', { n: nextIdx + 1 }), R.unlockCost(st), findLegal(model, 'unlock_layer')));
       gg.appendChild(r3);
     }
     if (st.ruleset.mechanics.foreman) {
       var r4 = el('div', 'action-row');
       if (!st.foreman.unlocked) {
-        r4.appendChild(actionButton({ type: 'buy_foreman' }, 'Buy Foreman', st.ruleset.foremanCost, findLegal(model, 'buy_foreman')));
+        r4.appendChild(actionButton({ type: 'buy_foreman' }, T('Buy Foreman'), st.ruleset.foremanCost, findLegal(model, 'buy_foreman')));
       } else {
-        var t = btn('Foreman: ' + (st.foreman.enabled ? 'ON' : 'off'), st.foreman.enabled ? 'selected' : 'ghost',
+        var t = btn(st.foreman.enabled ? T('Foreman: ON') : T('Foreman: off'), st.foreman.enabled ? 'selected' : 'ghost',
           function () { H.command({ type: 'toggle_foreman' }); });
         r4.appendChild(t);
       }
@@ -940,7 +970,7 @@
     }
     if (model.mode === 'practice') {
       var r5 = el('div', 'action-row');
-      var ub = btn('Undo (Z)', 'ghost', function () { H.undo(); });
+      var ub = btn(T('Undo (Z)'), 'ghost', function () { H.undo(); });
       ub.disabled = !model.canUndo;
       r5.appendChild(ub);
       gg.appendChild(r5);
@@ -954,16 +984,16 @@
     var st = model.state;
     var sel = model.selectedLayer;
     if (sel !== null && st.layers[sel] && st.layers[sel].unlocked) {
-      tray.appendChild(holdable(actionButton({ type: 'assign', layer: sel }, '+ Assign', null, findLegal(model, 'assign', sel))));
-      tray.appendChild(actionButton({ type: 'upgrade_shaft', layer: sel }, 'Shaft', R.shaftCost(st, sel), findLegal(model, 'upgrade_shaft', sel)));
+      tray.appendChild(holdable(actionButton({ type: 'assign', layer: sel }, T('+ Assign'), null, findLegal(model, 'assign', sel))));
+      tray.appendChild(actionButton({ type: 'upgrade_shaft', layer: sel }, T('Shaft'), R.shaftCost(st, sel), findLegal(model, 'upgrade_shaft', sel)));
     }
-    tray.appendChild(actionButton({ type: 'hire' }, 'Hire', R.hireCost(st), findLegal(model, 'hire')));
+    tray.appendChild(actionButton({ type: 'hire' }, T('Hire'), R.hireCost(st), findLegal(model, 'hire')));
     if (R.nextLockedLayer(st) >= 0) {
-      tray.appendChild(actionButton({ type: 'unlock_layer' }, 'Open L' + (R.nextLockedLayer(st) + 1), R.unlockCost(st), findLegal(model, 'unlock_layer')));
+      tray.appendChild(actionButton({ type: 'unlock_layer' }, T('Open L{n}', { n: R.nextLockedLayer(st) + 1 }), R.unlockCost(st), findLegal(model, 'unlock_layer')));
     }
     if (st.flare.active) {
       tray.appendChild(actionButton({ type: 'claim_flare', layer: st.flare.active.layer, id: st.flare.active.id },
-        '✦ Flare L' + (st.flare.active.layer + 1), null, findLegal(model, 'claim_flare', st.flare.active.layer)));
+        T('✦ Flare L{n}', { n: st.flare.active.layer + 1 }), null, findLegal(model, 'claim_flare', st.flare.active.layer)));
     }
   }
 
@@ -1009,11 +1039,11 @@
       d.classList.toggle('blocked', blocked);
       var flare = st.flare.active && st.flare.active.layer === i;
       d.classList.toggle('flare', !!flare);
-      var text = 'L' + (i + 1);
+      var text = T('L{n}', { n: i + 1 });
       if (!L.unlocked) text += ' 🔒';
       else {
         text += ' ⚒' + L.workers;
-        if (blocked) text += ' ▲FULL';
+        if (blocked) text += ' ▲' + T('FULL');
         if (flare) text += ' ✦';
       }
       d.textContent = text;
@@ -1052,8 +1082,8 @@
       m.setAttribute('aria-label', msg);
       m.appendChild(el('p', null, msg));
       var row = el('div', 'action-row');
-      row.appendChild(btn('Confirm', 'primary', function () { close(); onYes(); }));
-      row.appendChild(btn('Cancel', 'ghost', function () { close(); }));
+      row.appendChild(btn(T('Confirm'), 'primary', function () { close(); onYes(); }));
+      row.appendChild(btn(T('Cancel'), 'ghost', function () { close(); }));
       m.appendChild(row);
       return m;
     });
@@ -1090,6 +1120,19 @@
     if (text === null) { c.classList.add('hidden'); return; }
     c.classList.remove('hidden');
     c.textContent = text;
+  }
+
+  // The game language changed: re-render whatever is on screen in place.
+  // Navigation history, the run and its HUD state are untouched.
+  function relabel() {
+    buildModeGrid();
+    tickDailyCountdown();
+    var builder = SCREEN_BUILDERS[current];
+    if (builder) builder();
+    if (current === 'setup' && lastSetup) openSetup(lastSetup.mode, lastSetup.content, true);
+    if (current === 'settings') openSettings(settingsInPause, true);
+    if (current === 'results' && lastResults) showResults(lastResults, true);
+    lastRailSig = '';
   }
 
   function setBootProgress(frac, msg) {
@@ -1131,6 +1174,8 @@
     closeModal: closeModal,
     showCountdown: showCountdown,
     setBootProgress: setBootProgress,
+    relabel: relabel,
+    contentName: contentName,
     ACHIEVEMENTS: ACHIEVEMENTS
   };
 })(typeof self !== 'undefined' ? self : this);

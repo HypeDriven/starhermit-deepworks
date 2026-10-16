@@ -59,7 +59,8 @@ const PLATFORM_API = /^\/api\//;
 async function platformPass(browser, tag, viewport, hasTouch) {
   const context = await browser.newContext({ viewport, hasTouch });
   const page = await context.newPage();
-  const errors = [], seen = [];
+  const errors = [], seen = [], bodies = {};
+  let prefLang = 'en';
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
   page.on('console', (m) => {
     if ((m.type() === 'error' || m.type() === 'warning') && !browserNoise.test(m.text())) errors.push(`console ${m.type()}: ${m.text()}`);
@@ -69,8 +70,13 @@ async function platformPass(browser, tag, viewport, hasTouch) {
   await page.route((url) => PLATFORM_API.test(url.pathname), (route) => {
     const req = route.request(), u = new URL(req.url());
     seen.push(req.method() + ' ' + u.pathname);
-    const json = (o) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(o) });
+    if (req.method() !== 'GET') bodies[req.method() + ' ' + u.pathname] = req.postData();
+    const json = (o, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(o) });
     if (u.pathname === '/api/v1/time') return json({ now: Date.now() });
+    if (u.pathname === '/api/v1/me/language') return json({ preferredLanguage: prefLang });
+    if (u.pathname.includes('/cloud-saves/') && req.method() === 'PUT') return json({ etag: '"v' + seen.length + '"' });
+    if (/\/settings\/ui\.language$/.test(u.pathname) && req.method() === 'PUT') return json({ key: 'ui.language' });
+    if (u.pathname.endsWith('/reports') && req.method() === 'POST') return json({ id: 'r1', kind: 'bug', status: 'open', createdAt: new Date().toISOString() }, 201);
     if (u.pathname.endsWith('/profile')) return json({ nickname: 'Pip Tester' });
     if (u.pathname.endsWith('/settings') && req.method() === 'GET') return json({ settings: { highContrast: true } });
     if (u.pathname.endsWith('/controls')) return json({ actions: [{ action: 'pause', codes: ['KeyP'] }] });
@@ -102,6 +108,64 @@ async function platformPass(browser, tag, viewport, hasTouch) {
       await page.locator('#btn-help').scrollIntoViewIfNeeded();
       await click('#btn-help');
       await page.waitForFunction(() => /P pause/.test(document.getElementById('help-body').textContent), null, { timeout: 3000 });
+    });
+    await step('language: Automatic follows the account (fr-CA); Deutsch re-renders and saves ui.language; report a problem', async () => {
+      prefLang = 'fr-CA';
+      await page.goto('about:blank');
+      await page.goto(`http://127.0.0.1:${server.address().port}/#game_token=${jwt}`, { waitUntil: 'load' });
+      await page.waitForFunction(() => window.DWUI && window.DWUI.currentScreen() === 'title' && document.documentElement.lang === 'fr-CA', null, { timeout: 15000 });
+      if ((await page.locator('#btn-play').textContent()) !== 'Jouer') throw new Error('title not in fr-CA');
+      await page.locator('#btn-settings').scrollIntoViewIfNeeded();
+      await click('#btn-settings');
+      const choice = page.locator('[data-game-language="choice"]');
+      await choice.waitFor({ timeout: 5000 });
+      await choice.scrollIntoViewIfNeeded();
+      const auto = await choice.locator('option').first().textContent();
+      if (auto !== 'Automatique — Français (Canada)') throw new Error('Automatic label: ' + auto);
+      await choice.selectOption('de-DE');
+      await page.waitForFunction(() => document.documentElement.lang === 'de-DE');
+      await page.waitForFunction(() => /Im Konto gespeichert/.test(document.querySelector('[data-game-language="status"]').textContent), null, { timeout: 5000 });
+      const de = await page.evaluate(() => ({
+        h: document.querySelector('#settings-panel h2').textContent,
+        groups: [...document.querySelectorAll('#settings-panel .set-group h3')].map((h) => h.textContent),
+        stillThere: !!document.querySelector('[data-game-language="choice"]'),
+        play: document.getElementById('btn-play').textContent,
+      }));
+      if (de.h !== 'Einstellungen' || de.groups[0] !== 'Audio' || de.groups[1] !== 'Grafik' || de.groups[2] !== 'Steuerung' || !de.stillThere || de.play !== 'Spielen') throw new Error('not re-rendered: ' + JSON.stringify(de));
+      const saved = bodies['PUT /api/v1/games/deepworks/settings/ui.language'];
+      if (!saved || JSON.parse(saved).value.choice !== 'de-DE') throw new Error('ui.language not saved: ' + saved);
+      await page.locator('[data-game-report="title"]').scrollIntoViewIfNeeded();
+      await page.fill('[data-game-report="title"]', 'Language test report');
+      await click('[data-game-report="send"]');
+      await page.waitForFunction(() => /Danke/.test(document.querySelector('[data-game-report="status"]').textContent), null, { timeout: 5000 });
+      if (JSON.parse(bodies['POST /api/v1/games/deepworks/reports'] || '{}').kind !== 'bug') throw new Error('report not posted');
+      await page.screenshot({ path: SHOT('language-de', tag) });
+      if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw new Error('German settings overflow horizontally');
+    });
+    await step('language: switching mid-shift re-renders the HUD and keeps the run', async () => {
+      await page.locator('#settings-panel .back-btn').scrollIntoViewIfNeeded();
+      await click('#settings-panel .back-btn');
+      await page.locator('#btn-daily').scrollIntoViewIfNeeded();
+      await click('#btn-daily');
+      await page.locator('#setup-panel .btn.primary').scrollIntoViewIfNeeded();
+      await click('#setup-panel .btn.primary');
+      await page.waitForFunction(() => window.DWUI.currentScreen() === 'play', null, { timeout: 8000 });
+      await page.waitForTimeout(2200); // countdown
+      await click('#btn-pause');
+      await page.waitForFunction(() => window.DWUI.currentScreen() === 'settings');
+      const choice = page.locator('[data-game-language="choice"]');
+      await choice.scrollIntoViewIfNeeded();
+      await choice.selectOption('it-IT');
+      await page.waitForFunction(() => document.documentElement.lang === 'it-IT');
+      const it = await page.evaluate(() => ({
+        h: document.querySelector('#settings-panel h2').textContent,
+        resume: document.querySelector('#settings-panel .btn.primary').textContent,
+        rail: document.querySelector('#hud-left .rail-title').textContent,
+        right: document.getElementById('right-rail-body').textContent,
+      }));
+      if (it.h !== 'In pausa' || it.resume !== 'Riprendi' || it.rail !== 'Rapporto del turno' || !/Tutta la miniera/.test(it.right)) throw new Error('not re-rendered: ' + JSON.stringify(it));
+      await choice.selectOption('auto');
+      await page.waitForFunction(() => document.documentElement.lang === 'fr-CA');
     });
   } finally {
     await context.close();

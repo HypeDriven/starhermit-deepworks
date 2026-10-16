@@ -695,21 +695,23 @@
 
   // ------------------------------------------------------------- inspection ---
   // Concise board model for screen readers / debug views (spec §3).
-  function describeState(state) {
+  // tr: the UI's translator (js/i18n.js); plain US English with {vars} filled otherwise.
+  function describeState(state, tr) {
+    tr = tr || function (k, v) { return String(k).replace(/\{(\w+)\}/g, function (m, x) { return v && v[x] != null ? String(v[x]) : m; }); };
     var lines = [];
-    lines.push('Credits: ' + formatCoins(state.coins) + ', income about ' + formatCoins(incomeRate(state)) + ' per second.');
-    lines.push('Workers: ' + state.workers.total + ' total, ' + state.workers.idle + ' idle.');
+    lines.push(tr('Credits: {credits}, income about {income} per second.', { credits: formatCoins(state.coins), income: formatCoins(incomeRate(state)) }));
+    lines.push(tr('Workers: {total} total, {idle} idle.', { total: state.workers.total, idle: state.workers.idle }));
     for (var i = 0; i < state.layers.length; i++) {
       var L = state.layers[i];
-      if (!L.unlocked) { lines.push('Layer ' + (i + 1) + ': sealed.'); continue; }
+      if (!L.unlocked) { lines.push(tr('Layer {n}: sealed.', { n: i + 1 })); continue; }
       var blocked = isBlocked(state, i);
-      lines.push('Layer ' + (i + 1) + ': ' + L.workers + ' workers, shaft level ' + L.shaftLevel +
-        ', bin ' + Math.floor((L.milliOre * 100) / binCapMilli(state, i)) + '% full' + (blocked ? ' (blocked — upgrade transport)' : '') +
-        (state.flare.active && state.flare.active.layer === i ? ', seam flare active' : '') + '.');
+      var vars = { n: i + 1, workers: L.workers, level: L.shaftLevel, bin: Math.floor((L.milliOre * 100) / binCapMilli(state, i)) };
+      lines.push(tr('Layer {n}: {workers} workers, shaft level {level}, bin {bin}% full', vars) +
+        (blocked ? tr(' (blocked — upgrade transport)') : '') +
+        (state.flare.active && state.flare.active.layer === i ? tr(', seam flare active') : '') + '.');
     }
-    lines.push('Lift: capacity level ' + state.lift.capLevel + ', speed level ' + state.lift.speedLevel +
-      ', moves ' + Math.floor(liftRate(state)) + ' milli-ore per second.');
-    if (state.terminal) lines.push('Run ended: ' + state.terminal.reason + '.');
+    lines.push(tr('Lift: capacity level {cap}, speed level {speed}, moves {rate} milli-ore per second.', { cap: state.lift.capLevel, speed: state.lift.speedLevel, rate: Math.floor(liftRate(state)) }));
+    if (state.terminal) lines.push(tr('Run ended: {reason}.', { reason: state.terminal.reason }));
     return lines.join('\n');
   }
 

@@ -16,14 +16,23 @@ const JWT = `${b64u({ alg: 'none' })}.${b64u({ sub: 'u-12345678', game_scope: SL
 
 function boot(hash) {
   const calls = [];
-  const store = { save: null, settings: {} };
+  const store = { save: null, settings: {}, version: 0, etag: null };
   const fetch = async (url, init = {}) => {
     const method = init.method || 'GET';
     calls.push({ url, method, init });
     const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { 'Content-Type': 'application/json' } });
     if (url.endsWith('/api/v1/users/u-12345678/profile')) return json({ nickname: 'Pip' });
     if (url.includes('/api/v1/me/cloud-saves/')) {
-      if (method === 'PUT') { store.save = Buffer.from(JSON.parse(init.body).dataBase64, 'base64'); return new Response(null, { status: 204 }); }
+      // Conditional writes: the SDK sends If-Match with the ETag it last saw;
+      // a newer save from "another device" (store.etag bumped) answers 412.
+      if (url.endsWith('/info')) return json({ exists: !!store.save, etag: store.etag });
+      if (method === 'PUT') {
+        const ifMatch = init.headers && init.headers['If-Match'];
+        if (ifMatch && ifMatch !== store.etag) return json({ error: 'precondition_failed', etag: store.etag }, 412);
+        store.save = Buffer.from(JSON.parse(init.body).dataBase64, 'base64');
+        store.etag = '"v' + (++store.version) + '"';
+        return json({ etag: store.etag });
+      }
       return store.save ? new Response(store.save, { status: 200 }) : new Response('', { status: 404 });
     }
     if (url.endsWith(`/api/v1/games/${SLUG}/settings`)) {
@@ -83,6 +92,50 @@ test('cloud save round-trips through /api/v1/me/cloud-saves/game:<slug>', async 
   assert.equal(put.init.keepalive, true);
   assert.equal(P.state.sync, 'synced');
   assert.equal(await P.loadCloud(), wrapped);
+});
+
+test('a lost cloud write (412) is reported as a save conflict and cleared by a reload', async () => {
+  const { P, store } = boot('#game_token=' + JWT);
+  P.init();
+  let conflicts = 0;
+  P.onSaveConflict(() => conflicts++);
+  assert.equal(await P.loadCloud(), null);
+  P.onSave(JSON.stringify({ sum: 'a', payload: '{}' }));
+  assert.equal(await P.flushSave(true), true);
+  store.etag = '"elsewhere"'; // another device saved since
+  P.onSave(JSON.stringify({ sum: 'b', payload: '{}' }));
+  assert.equal(await P.flushSave(true), false);
+  assert.equal(conflicts, 1);
+  assert.equal(P.saveConflicted(), true);
+  await P.loadCloud();
+  assert.equal(P.saveConflicted(), false);
+});
+
+test('mergeProfiles keeps the better side of every record', async () => {
+  const { createRequire } = await import('node:module');
+  const require = createRequire(import.meta.url);
+  const S = require('../js/session.js');
+  const remote = Object.assign(S.defaultProfile(), {
+    journey: { 'journey-1': { stars: 3, bestTick: 400 }, 'journey-2': { stars: 1, bestTick: 900 } },
+    lessons: { 'learn-1': true }, daily: { '2026-10-01': { score: 500, won: true } },
+    practice: { miner: 1000 }, challenges: { 'ch-sprint': 50 }, achievements: { first_completion: 100 },
+    mastery: { xp: 120, level: 3 }, stats: { runsPlayed: 4, totalEarned: 900, flaresClaimed: 2, playtimeSec: 600 } });
+  const local = Object.assign(S.defaultProfile(), {
+    displayName: 'Pip', journey: { 'journey-2': { stars: 2, bestTick: 1200 }, 'journey-3': { stars: 1, bestTick: 50 } },
+    lessons: { 'learn-2': true }, daily: { '2026-10-01': { score: 700, won: false }, '2026-10-02': { score: 10, won: false } },
+    practice: { miner: 600, foreman: 30 }, challenges: { 'ch-sprint': 90 }, achievements: { first_completion: 50, streak_7: 60 },
+    mastery: { xp: 80, level: 2 }, stats: { runsPlayed: 7, totalEarned: 500, flaresClaimed: 5, playtimeSec: 100 } });
+  const m = S.mergeProfiles(remote, local);
+  assert.equal(m.displayName, 'Pip');
+  assert.deepEqual(J(m.journey), { 'journey-1': { stars: 3, bestTick: 400 }, 'journey-2': { stars: 2, bestTick: 900 }, 'journey-3': { stars: 1, bestTick: 50 } });
+  assert.deepEqual(Object.keys(m.lessons).sort(), ['learn-1', 'learn-2']);
+  assert.deepEqual(J(m.daily['2026-10-01']), { score: 700, won: true });
+  assert.ok(m.daily['2026-10-02']);
+  assert.deepEqual(J(m.practice), { miner: 1000, foreman: 30 });
+  assert.equal(m.challenges['ch-sprint'], 90);
+  assert.deepEqual(J(m.achievements), { first_completion: 50, streak_7: 60 });
+  assert.equal(m.mastery.xp, 120);
+  assert.deepEqual(J(m.stats), { runsPlayed: 7, totalEarned: 900, flaresClaimed: 5, playtimeSec: 600 });
 });
 
 test('settings patch, bindings, invite link, time and platform scores', async () => {

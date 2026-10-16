@@ -290,6 +290,50 @@
     }
   }
 
+  // Merge two profiles after a cloud-save conflict (another device saved since
+  // this one last loaded). Nothing earned on either side is lost: the better
+  // journey record per stage, every lesson / daily / achievement, the best
+  // practice and challenge scores, the larger mastery xp and career counters.
+  // Identity and settings stay this device's.
+  function mergeProfiles(remote, local) {
+    var a = remote || {}, b = local || defaultProfile();
+    function obj(x) { return x && typeof x === 'object' && !Array.isArray(x) ? x : {}; }
+    function keys(x, y) { var o = {}; Object.keys(obj(x)).concat(Object.keys(obj(y))).forEach(function (k) { o[k] = true; }); return Object.keys(o); }
+    var out = {};
+    for (var k in b) out[k] = b[k];
+    out.journey = {};
+    keys(a.journey, b.journey).forEach(function (id) {
+      var x = obj(a.journey)[id], y = obj(b.journey)[id];
+      if (!x || !y) { out.journey[id] = x || y; return; }
+      var r = { stars: Math.max(x.stars || 0, y.stars || 0) };
+      var ticks = [x.bestTick, y.bestTick].filter(function (t) { return typeof t === 'number'; });
+      if (ticks.length) r.bestTick = Math.min.apply(null, ticks);
+      if (x.bestScore != null || y.bestScore != null) r.bestScore = Math.max(x.bestScore || 0, y.bestScore || 0);
+      out.journey[id] = r;
+    });
+    out.lessons = {};
+    keys(a.lessons, b.lessons).forEach(function (id) { if (obj(a.lessons)[id] || obj(b.lessons)[id]) out.lessons[id] = true; });
+    out.daily = {};
+    keys(a.daily, b.daily).forEach(function (d) {
+      var x = obj(a.daily)[d], y = obj(b.daily)[d];
+      out.daily[d] = !x || !y ? (x || y) : { score: Math.max(x.score || 0, y.score || 0), won: !!(x.won || y.won) };
+    });
+    ['practice', 'challenges'].forEach(function (f) {
+      out[f] = {};
+      keys(a[f], b[f]).forEach(function (id) { out[f][id] = Math.max(obj(a[f])[id] || 0, obj(b[f])[id] || 0); });
+    });
+    out.achievements = {};
+    keys(a.achievements, b.achievements).forEach(function (id) {
+      var x = obj(a.achievements)[id], y = obj(b.achievements)[id];
+      out.achievements[id] = x && y ? Math.min(x, y) : (x || y);
+    });
+    var xp = Math.max(obj(a.mastery).xp || 0, obj(b.mastery).xp || 0);
+    out.mastery = { xp: xp, level: masteryLevelFor(xp).level };
+    out.stats = {};
+    keys(a.stats, b.stats).forEach(function (f) { out.stats[f] = Math.max(obj(a.stats)[f] || 0, obj(b.stats)[f] || 0); });
+    return out;
+  }
+
   // Journey stars: 3 = at/under par, 2 = under 1.5x par, 1 = completion.
   function starsFor(content, tick) {
     if (!content.parSec) return 1;
@@ -326,7 +370,7 @@
     clearSavedRun: clearSavedRun,
     resumeRun: resumeRun,
     defaultProfile: defaultProfile,
-    loadProfile: loadProfile, loadProfileRaw: parseProfileWrapped,
+    loadProfile: loadProfile, loadProfileRaw: parseProfileWrapped, mergeProfiles: mergeProfiles,
     saveProfile: saveProfile,
     starsFor: starsFor,
     masteryXpFor: masteryXpFor,

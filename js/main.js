@@ -45,18 +45,10 @@
     pad: { confirm: 0, cancel: 1, pause: 9, up: 12, down: 13 }
   };
 
-  var PT = {
-    'en-US': { offline: 'Offline — progress is stored on this device.', playing: 'Playing as {name}', synced: 'progress synced', saving: 'saving…', nosync: 'cloud sync unavailable', signIn: 'Sign in with StarHermit', invite: 'Invite a friend', copied: 'Invite link copied to the clipboard.', copyFail: 'Could not copy — invite link: {link}', lbPosting: 'Posting score to the leaderboard…', lbRank: 'Leaderboard rank: #{rank}', lbPosted: 'Score posted to the leaderboard.', lbNotPosted: 'Score not posted to the leaderboard.' },
-    'en-GB': { offline: 'Offline — progress is stored on this device.', playing: 'Playing as {name}', synced: 'progress synced', saving: 'saving…', nosync: 'cloud sync unavailable', signIn: 'Sign in with StarHermit', invite: 'Invite a friend', copied: 'Invite link copied to the clipboard.', copyFail: 'Could not copy — invite link: {link}', lbPosting: 'Posting score to the leaderboard…', lbRank: 'Leaderboard rank: #{rank}', lbPosted: 'Score posted to the leaderboard.', lbNotPosted: 'Score not posted to the leaderboard.' },
-    'es-419': { offline: 'Sin conexión: el progreso se guarda en este dispositivo.', playing: 'Jugando como {name}', synced: 'progreso sincronizado', saving: 'guardando…', nosync: 'sincronización en la nube no disponible', signIn: 'Iniciar sesión con StarHermit', invite: 'Invitar a un amigo', copied: 'Enlace de invitación copiado al portapapeles.', copyFail: 'No se pudo copiar. Enlace de invitación: {link}', lbPosting: 'Enviando la puntuación a la clasificación…', lbRank: 'Puesto en la clasificación: #{rank}', lbPosted: 'Puntuación enviada a la clasificación.', lbNotPosted: 'La puntuación no se envió a la clasificación.' },
-    'es-ES': { offline: 'Sin conexión: el progreso se guarda en este dispositivo.', playing: 'Jugando como {name}', synced: 'progreso sincronizado', saving: 'guardando…', nosync: 'sincronización en la nube no disponible', signIn: 'Iniciar sesión con StarHermit', invite: 'Invitar a un amigo', copied: 'Enlace de invitación copiado al portapapeles.', copyFail: 'No se ha podido copiar. Enlace de invitación: {link}', lbPosting: 'Enviando la puntuación a la clasificación…', lbRank: 'Puesto en la clasificación: #{rank}', lbPosted: 'Puntuación enviada a la clasificación.', lbNotPosted: 'La puntuación no se envió a la clasificación.' },
-    'de-DE': { offline: 'Offline – der Fortschritt wird auf diesem Gerät gespeichert.', playing: 'Du spielst als {name}', synced: 'Fortschritt synchronisiert', saving: 'wird gespeichert…', nosync: 'Cloud-Synchronisierung nicht verfügbar', signIn: 'Mit StarHermit anmelden', invite: 'Freund einladen', copied: 'Einladungslink in die Zwischenablage kopiert.', copyFail: 'Kopieren fehlgeschlagen – Einladungslink: {link}', lbPosting: 'Punktzahl wird an die Bestenliste gesendet …', lbRank: 'Platz in der Bestenliste: #{rank}', lbPosted: 'Punktzahl an die Bestenliste gesendet.', lbNotPosted: 'Punktzahl wurde nicht an die Bestenliste gesendet.' },
-    'fr-FR': { offline: 'Hors ligne : la progression est enregistrée sur cet appareil.', playing: 'Vous jouez en tant que {name}', synced: 'progression synchronisée', saving: 'enregistrement…', nosync: 'synchronisation cloud indisponible', signIn: 'Se connecter avec StarHermit', invite: 'Inviter un ami', copied: 'Lien d’invitation copié dans le presse-papiers.', copyFail: 'Copie impossible — lien d’invitation : {link}', lbPosting: 'Envoi du score au classement…', lbRank: 'Rang au classement : #{rank}', lbPosted: 'Score envoyé au classement.', lbNotPosted: 'Score non envoyé au classement.' },
-    'fr-CA': { offline: 'Hors ligne : la progression est enregistrée sur cet appareil.', playing: 'Vous jouez en tant que {name}', synced: 'progression synchronisée', saving: 'enregistrement…', nosync: 'synchronisation infonuagique non disponible', signIn: 'Se connecter avec StarHermit', invite: 'Inviter un ami', copied: 'Lien d’invitation copié dans le presse-papiers.', copyFail: 'Copie impossible — lien d’invitation : {link}', lbPosting: 'Envoi du score au classement…', lbRank: 'Rang au classement : #{rank}', lbPosted: 'Score envoyé au classement.', lbNotPosted: 'Score non envoyé au classement.' },
-    'pt-BR': { offline: 'Offline — o progresso fica salvo neste dispositivo.', playing: 'Jogando como {name}', synced: 'progresso sincronizado', saving: 'salvando…', nosync: 'sincronização na nuvem indisponível', signIn: 'Entrar com StarHermit', invite: 'Convidar um amigo', copied: 'Link de convite copiado para a área de transferência.', copyFail: 'Não foi possível copiar — link de convite: {link}', lbPosting: 'Enviando a pontuação para o ranking…', lbRank: 'Posição no ranking: #{rank}', lbPosted: 'Pontuação enviada para o ranking.', lbNotPosted: 'A pontuação não foi enviada para o ranking.' },
-    'it-IT': { offline: 'Offline: i progressi sono salvati su questo dispositivo.', playing: 'Giochi come {name}', synced: 'progressi sincronizzati', saving: 'salvataggio…', nosync: 'sincronizzazione cloud non disponibile', signIn: 'Accedi con StarHermit', invite: 'Invita un amico', copied: 'Link di invito copiato negli appunti.', copyFail: 'Impossibile copiare. Link di invito: {link}', lbPosting: 'Invio del punteggio alla classifica…', lbRank: 'Posizione in classifica: #{rank}', lbPosted: 'Punteggio inviato alla classifica.', lbNotPosted: 'Punteggio non inviato alla classifica.' }
-  };
-  var P_STR = PT[typeof DWGfx !== 'undefined' ? DWGfx.pickLocale(navigator.language) : 'en-US'] || PT['en-US'];
+  // Every player-facing string follows the game language (js/i18n.js, keyed by
+  // the US-English text).
+  function T(key, vars) { return window.DWI18n ? window.DWI18n.T(key, vars) : String(key).replace(/\{(\w+)\}/g, function (m, k) { return vars && vars[k] != null ? vars[k] : m; }); }
+  function N(key) { return key; }
 
   // Keyboard actions as KeyboardEvent.code values (platform overrides apply
   // via StarHermit controls). Defaults follow settings.keys.
@@ -148,8 +140,33 @@
   function inviteFriend() {
     var link = P.inviteLink();
     if (!link) return;
-    var fail = function () { UI.toast(P_STR.copyFail.replace('{link}', link)); };
-    try { navigator.clipboard.writeText(link).then(function () { UI.toast(P_STR.copied); }, fail); } catch (e) { fail(); }
+    var fail = function () { UI.toast(T('Could not copy — invite link: {link}', { link: link })); };
+    try { navigator.clipboard.writeText(link).then(function () { UI.toast(T('Invite link copied to the clipboard.')); }, fail); } catch (e) { fail(); }
+  }
+
+  // Another device saved since this one last loaded: reload the cloud slot,
+  // merge it with the local profile (better records, every lesson / daily /
+  // achievement from either side, larger career counters), adopt the merge
+  // and save it back. A shift in progress is untouched.
+  var merging = false;
+  function mergeCloudConflict() {
+    if (merging || !P.state.hosted) return;
+    merging = true;
+    P.loadCloud().then(function (remoteRaw) {
+      if (P.saveConflicted()) return; // the reload failed: writes stay blocked
+      var remote = remoteRaw ? S.loadProfileRaw(remoteRaw) : null;
+      app.profile = S.mergeProfiles(remote, app.profile);
+      app.profile.settings = app.settings;
+      S.saveProfile(app.profile); // also pushes the merge to the cloud slot
+      UI.refreshIdentity && UI.refreshIdentity();
+    }).catch(function () {}).then(function () { merging = false; });
+  }
+
+  // The game language changed: re-render the open screen, the HUD and the
+  // fallback board in place. The run and its simulation are untouched.
+  function onLanguageChange() {
+    UI.relabel();
+    if (app.run) { UI.updateHUD(hudModel()); updateFallbackBoard(); }
   }
 
   // ------------------------------------------------------------------ boot ---
@@ -163,12 +180,14 @@
     setBindings(defaultBindings());
     // Signed in: the account nickname replaces the guest name, the remote
     // save wins over the local cache, platform settings and bindings win.
+    P.onSaveConflict(mergeCloudConflict);
+    if (window.DWI18n) window.DWI18n.onChange(onLanguageChange);
     P.onSync(function () { UI.refreshIdentity && UI.refreshIdentity(); });
     P.onAuth(function () { UI.refreshIdentity && UI.refreshIdentity(); syncFromPlatform(); });
     syncFromPlatform();
 
     UI.init(handlers);
-    UI.setBootProgress(0.2, 'Checking the cage…');
+    UI.setBootProgress(0.2, T('Checking the cage…'));
 
     // renderer (optional; game remains fully playable via DOM)
     try {
@@ -182,20 +201,20 @@
     } catch (e) { app.renderer = null; }
     if (!app.renderer) {
       app.webgl = false;
-      UI.toast('3D unavailable — playing with the simplified board. Progress is preserved.', 'err');
+      UI.toast(T('3D unavailable — playing with the simplified board. Progress is preserved.'), 'err');
       buildFallbackBoard();
     }
-    UI.setBootProgress(0.55, 'Charting seams…');
+    UI.setBootProgress(0.55, T('Charting seams…'));
 
     // saved endless run?
     app.savedRun = S.loadSavedRun();
 
     P.syncTime().finally(function () {
-      UI.setBootProgress(0.9, 'Lighting the lamps…');
+      UI.setBootProgress(0.9, T('Lighting the lamps…'));
       bindInput();
       bindLifecycle();
       setTimeout(function () {
-        UI.setBootProgress(1, 'Ready.');
+        UI.setBootProgress(1, T('Ready.'));
         UI.show('title');
         P.track('start', { hosted: P.state.hosted });
       }, 250);
@@ -233,9 +252,11 @@
         b.className = 'btn';
         b.style.minHeight = '52px';
         var cap = R.binCapMilli(st, idx);
-        b.textContent = 'Layer ' + (idx + 1) + (L.unlocked ?
-          ' — crew ' + L.workers + ', bin ' + Math.floor(L.milliOre * 100 / cap) + '%' + (R.isBlocked(st, idx) ? ' BLOCKED' : '') +
-          (st.flare.active && st.flare.active.layer === idx ? ' ✦ FLARE' : '') : ' — sealed');
+        b.textContent = L.unlocked
+          ? T('Layer {n} — crew {crew}, bin {bin}%', { n: idx + 1, crew: L.workers, bin: Math.floor(L.milliOre * 100 / cap) }) +
+            (R.isBlocked(st, idx) ? ' ' + T('BLOCKED') : '') +
+            (st.flare.active && st.flare.active.layer === idx ? ' ✦ ' + T('FLARE') : '')
+          : T('Layer {n} — sealed', { n: idx + 1 });
         b.addEventListener('click', function () { onLayerPicked(idx); });
         board.appendChild(b);
       })(i);
@@ -298,7 +319,7 @@
     if (app.lesson) {
       UI.showCountdown(null);
       app.countdownEnd = 0;
-      UI.announce(app.lesson.intro, false);
+      UI.announce(T(app.lesson.intro), false);
     } else {
       app.countdownEnd = performance.now() + 1800;
       app.paused = true; // hold sim during countdown
@@ -310,17 +331,17 @@
 
   function announceObjective() {
     var g = app.run.state.ruleset.goals;
-    var msg = app.content.name + '. ';
-    if (app.lesson) msg += app.lesson.intro;
-    else if (g) msg += 'Objective: ' + objectiveText(g) + '.';
-    else msg += 'Endless shift. Bank your score from the pause menu.';
+    var msg = UI.contentName(app.content) + '. ';
+    if (app.lesson) msg += T(app.lesson.intro);
+    else if (g) msg += T('Objective: {goal}.', { goal: objectiveText(g) });
+    else msg += T('Endless shift. Bank your score from the pause menu.');
     UI.announce(msg, false);
   }
   function objectiveText(g) {
-    if (!g) return 'Endless shift';
-    if (g.type === 'earn') return 'Earn ' + R.formatCoins(g.amount) + ' credits';
-    if (g.type === 'depth') return 'Unlock ' + g.amount + ' layers';
-    if (g.type === 'rate') return 'Reach ' + R.formatOre(g.amount) + ' ore/s';
+    if (!g) return T('Endless shift');
+    if (g.type === 'earn') return T('Earn {amount} credits', { amount: R.formatCoins(g.amount) });
+    if (g.type === 'depth') return T('Unlock {n} layers', { n: g.amount });
+    if (g.type === 'rate') return T('Reach {rate} ore/s', { rate: R.formatOre(g.amount) });
     return '';
   }
 
@@ -432,7 +453,7 @@
       var idx = 0;
       while (!(fresh & (1 << idx))) idx++;
       A.play('bin_blocked');
-      UI.announce('Layer ' + (idx + 1) + ' bin is full — transport is the bottleneck.', false);
+      UI.announce(T('Layer {n} bin is full — transport is the bottleneck.', { n: idx + 1 }), false);
     }
   }
 
@@ -449,11 +470,11 @@
       switch (e.type) {
         case 'flare_started':
           A.play('flare_started');
-          UI.announce('Seam flare on Layer ' + (e.layer + 1), false);
+          UI.announce(T('Seam flare on Layer {n}', { n: e.layer + 1 }), false);
           break;
         case 'flare_expired':
           A.play('flare_expired');
-          UI.announce('The flare on Layer ' + (e.layer + 1) + ' faded.', false);
+          UI.announce(T('The flare on Layer {n} faded.', { n: e.layer + 1 }), false);
           break;
         case 'terminal':
           break; // handled via run.closed
@@ -498,12 +519,12 @@
       else if (cmd.type.indexOf('upgrade') === 0) app.renderer.pulse('upgrade');
     }
     if (cmd.type === 'unlock_layer') {
-      UI.announce('Layer ' + (res.events[0].layer + 1) + ' opened.', false);
+      UI.announce(T('Layer {n} opened.', { n: res.events[0].layer + 1 }), false);
       checkAchievement('deep_milestone', R.unlockedCount(app.run.state) >= 6);
     }
     if (cmd.type === 'claim_flare') {
       app.profile.stats.flaresClaimed++;
-      UI.announce('Flare claimed: +' + R.formatCoins(res.events[0].credits) + ' credits.', false);
+      UI.announce(T('Flare claimed: +{credits} credits.', { credits: R.formatCoins(res.events[0].credits) }), false);
     }
     // lesson progression
     if (app.lesson) lessonCheckCommand(cmd);
@@ -514,16 +535,16 @@
 
   function invalidText(reason) {
     var map = {};
-    map[R.REASONS.NO_IDLE_WORKER] = 'No idle workers.';
-    map[R.REASONS.LAYER_LOCKED] = 'That layer is sealed.';
-    map[R.REASONS.WORKER_CAP] = 'Seam fully crewed.';
-    map[R.REASONS.NO_WORKERS] = 'Nobody assigned there.';
-    map[R.REASONS.INSUFFICIENT_FUNDS] = 'Not enough credits.';
-    map[R.REASONS.ALL_UNLOCKED] = 'All seams are open.';
-    map[R.REASONS.NO_FLARE] = 'No active flare.';
-    map[R.REASONS.MECHANIC_DISABLED] = 'Not available here.';
-    map[R.REASONS.TERMINAL] = 'The shift is over.';
-    return map[reason] || ('Cannot: ' + reason);
+    map[R.REASONS.NO_IDLE_WORKER] = N('No idle workers.');
+    map[R.REASONS.LAYER_LOCKED] = N('That layer is sealed.');
+    map[R.REASONS.WORKER_CAP] = N('Seam fully crewed.');
+    map[R.REASONS.NO_WORKERS] = N('Nobody assigned there.');
+    map[R.REASONS.INSUFFICIENT_FUNDS] = N('Not enough credits.');
+    map[R.REASONS.ALL_UNLOCKED] = N('All seams are open.');
+    map[R.REASONS.NO_FLARE] = N('No active flare.');
+    map[R.REASONS.MECHANIC_DISABLED] = N('Not available here.');
+    map[R.REASONS.TERMINAL] = N('The shift is over.');
+    return map[reason] ? T(map[reason]) : T('Cannot: {reason}', { reason: reason });
   }
 
   // --------------------------------------------------------------- lessons ---
@@ -548,10 +569,10 @@
     if (app.lessonStepIdx >= app.lesson.steps.length) {
       app.profile.lessons[app.lesson.id] = true;
       S.saveProfile(app.profile);
-      UI.toast('Lesson complete!', 'good');
+      UI.toast(T('Lesson complete!'), 'good');
       S.dispatch(app.run, { type: 'end_run' });
     } else {
-      UI.announce(app.lesson.steps[app.lessonStepIdx].text, false);
+      UI.announce(lessonStepText(app.lesson.steps[app.lessonStepIdx]), false);
     }
   }
 
@@ -620,7 +641,7 @@
     // credits) to the platform high-score board; the results show the rank.
     var leaderboard = null;
     if (P.state.hosted && (app.mode === 'journey' || app.mode === 'daily' || app.mode === 'challenge')) {
-      leaderboard = { promise: P.postHighScore(Math.floor(run.result.score.total / R.COIN_SCALE)), strings: P_STR };
+      leaderboard = { promise: P.postHighScore(Math.floor(run.result.score.total / R.COIN_SCALE)) };
     }
 
     UI.showResults({
@@ -642,7 +663,7 @@
   }
   function checkAchievement(key, condition) {
     var names = unlockAch(key, condition);
-    if (names.length) { A.play('achievement'); UI.toast('Achievement: ' + names[0], 'good'); S.saveProfile(app.profile); }
+    if (names.length) { A.play('achievement'); UI.toast(T('Achievement: {name}', { name: T(names[0]) }), 'good'); S.saveProfile(app.profile); }
   }
 
   // ----------------------------------------------------------------- input ---
@@ -660,7 +681,7 @@
     app.selectedLayer = idx;
     A.play('ui_click');
     if (!st.layers[idx].unlocked) {
-      UI.announce('Layer ' + (idx + 1) + ' is sealed. Open it from the Foreman\'s Panel.', false);
+      UI.announce(T("Layer {n} is sealed. Open it from the Foreman's Panel.", { n: idx + 1 }), false);
     }
     UI.updateHUD(hudModel());
     if (app.renderer) app.renderer.setSelectedLayer(idx);
@@ -709,18 +730,18 @@
     pollGamepad();
   }
   function cmdSel(type) {
-    if (app.selectedLayer === null) { UI.toast('Select a layer first (↑/↓ or tap)', 'err'); return; }
+    if (app.selectedLayer === null) { UI.toast(T('Select a layer first (↑/↓ or tap)'), 'err'); return; }
     doCommand({ type: type, layer: app.selectedLayer });
   }
   function claimActiveFlare() {
     var f = app.run && app.run.state.flare.active;
     if (f) doCommand({ type: 'claim_flare', layer: f.layer, id: f.id });
-    else { A.play('error'); UI.toast('No active flare.', 'err'); }
+    else { A.play('error'); UI.toast(T('No active flare.'), 'err'); }
   }
   function doUndo() {
     var res = S.undo(app.run);
-    if (res.ok) { A.play('undo'); UI.toast('Undone'); UI.updateHUD(hudModel()); }
-    else UI.toast('Nothing to undo.', 'err');
+    if (res.ok) { A.play('undo'); UI.toast(T('Undone')); UI.updateHUD(hudModel()); }
+    else UI.toast(T('Nothing to undo.'), 'err');
   }
 
   var padState = {};
@@ -760,14 +781,14 @@
     if (!app.run || app.run.closed) return;
     app.paused = true;
     UI.openSettings(true);
-    UI.announce('Paused.', false);
+    UI.announce(T('Paused.'), false);
   }
   function resumeGame() {
     app.paused = false;
     if (app.run) {
       app.lastFrame = performance.now(); // discard away time while paused
       UI.showPlay();
-      UI.announce('Resumed.', false);
+      UI.announce(T('Resumed.'), false);
     }
   }
 
@@ -818,8 +839,7 @@
     var lessonText = null;
     if (app.lesson && app.lesson.steps[app.lessonStepIdx]) {
       // Shortcut placeholders ({assign}, {hire}, …) resolve to the player's real bindings.
-      lessonText = 'Lesson ' + (app.lessonStepIdx + 1) + '/' + app.lesson.steps.length + ': ' +
-        app.lesson.steps[app.lessonStepIdx].text.replace(/\{(\w+)\}/g, function (m, k) { return keyLabel(k) || m; });
+      lessonText = T('Lesson {n}/{total}: {text}', { n: app.lessonStepIdx + 1, total: app.lesson.steps.length, text: lessonStepText(app.lesson.steps[app.lessonStepIdx]) });
     }
     return {
       state: app.run.state,
@@ -829,8 +849,12 @@
       lessonStep: lessonText,
       legal: R.legalActions(app.run.state),
       canUndo: S.canUndo(app.run),
-      objectiveText: app.lesson ? app.lesson.name : objectiveText(app.run.state.ruleset.goals)
+      objectiveText: app.lesson ? T(app.lesson.name) : objectiveText(app.run.state.ruleset.goals)
     };
+  }
+  // Shortcut placeholders ({assign}, {hire}, …) resolve to the player's real bindings.
+  function lessonStepText(step) {
+    return T(step.text).replace(/\{(\w+)\}/g, function (m, k) { return keyLabel(k) || m; });
   }
 
   // ------------------------------------------------------------- handlers ---
@@ -839,7 +863,7 @@
       return {
         profile: app.profile, settings: app.settings, run: app.run,
         mode: app.mode, content: app.content, selectedLayer: app.selectedLayer,
-        platform: { hosted: P.state.hosted, sync: P.state.sync, canSignIn: P.canSignIn(), inviteLink: P.inviteLink(), strings: P_STR },
+        platform: { hosted: P.state.hosted, sync: P.state.sync, canSignIn: P.canSignIn(), inviteLink: P.inviteLink() },
         keyLabel: keyLabel, savedRun: app.savedRun
       };
     },
@@ -880,16 +904,16 @@
       app.profile = S.loadProfile();
       app.profile.settings = app.settings;
       S.saveProfile(app.profile);
-      UI.toast('Local profile erased.', 'good');
+      UI.toast(T('Local profile erased.'), 'good');
       UI.show('title');
     },
     resumeSaved: function () {
       var data = app.savedRun;
       if (!data) return;
       var resumed = S.resumeRun(data);
-      if (!resumed) { UI.toast('Saved shift could not be restored.', 'err'); return; }
+      if (!resumed) { UI.toast(T('Saved shift could not be restored.'), 'err'); return; }
       A.unlock();
-      var content = { id: data.contentId, name: 'Practice (resumed)', version: data.contentVersion, seed: data.seed, theme: app.settings.theme };
+      var content = { id: data.contentId, name: N('Practice (resumed)'), version: data.contentVersion, seed: data.seed, theme: app.settings.theme };
       app.content = content;
       app.mode = data.mode || 'practice';
       app.run = {
@@ -909,21 +933,24 @@
         UI.openModal(function (close) {
           var m = document.createElement('div');
           m.className = 'modal';
-          m.innerHTML = '<h3>While you were away</h3>' +
-            '<p>The crew kept digging for ' + (mins >= 60 ? Math.floor(mins / 60) + 'h ' + (mins % 60) + 'm' : mins + ' min') +
-            (resumed.away.capped ? ' (capped)' : '') + ' and earned <b>' + R.formatCoins(resumed.away.earned) + '</b> credits.</p>';
+          var h3 = document.createElement('h3'); h3.textContent = T('While you were away');
+          var para = document.createElement('p');
+          para.textContent = T(resumed.away.capped ? 'The crew kept digging for {time} (capped) and earned {credits} credits.' : 'The crew kept digging for {time} and earned {credits} credits.', {
+            time: mins >= 60 ? Math.floor(mins / 60) + 'h ' + (mins % 60) + 'm' : T('{n} min', { n: mins }),
+            credits: R.formatCoins(resumed.away.earned) });
+          m.appendChild(h3); m.appendChild(para);
           var art = document.createElement('img');
           art.className = 'modal-art'; art.alt = ''; art.src = 'assets/crew-at-night.webp';
           art.addEventListener('error', function () { art.style.display = 'none'; });
           m.insertBefore(art, m.firstChild);
           var b = document.createElement('button');
-          b.className = 'btn primary'; b.textContent = 'Back to work';
+          b.className = 'btn primary'; b.textContent = T('Back to work');
           b.addEventListener('click', close);
           m.appendChild(b);
           return m;
         });
       }
-      UI.announce('Shift resumed.', false);
+      UI.announce(T('Shift resumed.'), false);
     },
     discardSaved: function () {
       S.clearSavedRun();

@@ -28,7 +28,8 @@
     profile: { displayName: 'Guest Prospector', avatar: null, guest: true },
     sync: 'offline',       // offline | saving | synced (cloud mirror)
     syncListeners: [],
-    authListeners: []
+    authListeners: [],
+    conflictListeners: []
   };
   Object.defineProperty(state, 'userId', { get: function () { var s = sdk(); return s ? s.userId : null; } });
   Object.defineProperty(state, 'scope', { get: function () { var s = sdk(); return s ? s.slug : null; } });
@@ -51,6 +52,11 @@
       started = true;
       s.init();
       s.on('saved', function (ok) { if (state.hosted) setSync(ok ? 'synced' : 'offline'); });
+      // Another device saved since our last load: the SDK refused the write
+      // and blocks further writes until the game reloads (loadCloud) and merges.
+      s.on('saveconflict', function () {
+        state.conflictListeners.forEach(function (fn) { try { fn(); } catch (e) { /* ignore */ } });
+      });
       s.on('auth', function (a) {
         var was = state.hosted;
         state.hosted = !!(a && a.signedIn && s.slug);
@@ -318,6 +324,8 @@
     flushSave: flushSave,
     onSync: onSync,
     onAuth: onAuth,
+    onSaveConflict: function (fn) { if (typeof fn === 'function' && state.conflictListeners.indexOf(fn) < 0) state.conflictListeners.push(fn); },
+    saveConflicted: function () { var s = sdk(); return !!(s && s.saveConflicted && s.saveConflicted()); },
     getSettings: getSettings,
     patchSettings: patchSettings,
     loadBindings: loadBindings,

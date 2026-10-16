@@ -60,7 +60,8 @@
     return 0.94 + (variantSeed % 120) / 1000; // 0.94..1.06
   }
   function onCaption(fn) { captionSink = fn; }
-  function caption(text) { if (captionSink) captionSink(text); }
+  // Captions follow the game language (js/i18n.js).
+  function caption(text) { if (captionSink) captionSink(root.DWI18n ? root.DWI18n.T(text) : text); }
 
   // ------------------------------------------------------------ primitives ---
   function tone(bus, freq, dur, type, gain, slide) {
