@@ -248,6 +248,7 @@ async function runPass(browser, tag, viewport, hasTouch) {
       await page.selectOption('#gfx-preset', 'high');
       await page.waitForFunction(() => document.body.dataset.gfxPreset === 'high');
       if (!/bloom/.test(await summary())) throw new Error('High summary should list bloom');
+      if (!/ · Level 0 · /.test(await summary())) throw new Error('summary lacks the hardware level: ' + await summary());
       // per-effect override: bloom off
       await page.selectOption('#gfx-cat-bloom', 'off');
       await page.waitForFunction(() => !/bloom/.test(document.getElementById('gfx-summary').textContent));

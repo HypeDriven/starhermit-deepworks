@@ -445,14 +445,38 @@ section('lift presentation: docking, loading, and cargo');
 section('graphics quality model (js/gfx.js)');
 {
   const G = require('../js/gfx.js');
-  eq(G.detectPreset('ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero)), SwiftShader driver)'), 'low', 'SwiftShader → low');
-  eq(G.detectPreset('llvmpipe (LLVM 15.0.7, 256 bits)'), 'low', 'llvmpipe → low');
-  eq(G.detectPreset('ANGLE (NVIDIA, NVIDIA GeForce RTX 3070 Direct3D11 vs_5_0 ps_5_0)'), 'high', 'GeForce → high');
-  eq(G.detectPreset('Apple M2'), 'high', 'Apple M → high');
-  eq(G.detectPreset('ANGLE (Intel, Intel(R) UHD Graphics 620 Direct3D11)'), 'balanced', 'Intel iGPU → balanced');
-  eq(G.detectPreset('Adreno (TM) 650'), 'balanced', 'mobile GPU → balanced');
-  eq(G.detectPreset(''), 'balanced', 'unknown GPU → balanced');
-  eq(G.detectPreset('Apple M2', true), 'balanced', 'touch/mobile caps Auto at balanced');
+  globalThis.StarHermitGpu = require('../gpu-level.js');
+  const desk = { webgl: true, webgl2: true, cores: 8, memoryGb: 8 };
+  const phone = { webgl: true, webgl2: true, mobile: true, cores: 8, memoryGb: 8 };
+  eq(G.detectPreset('ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero)), SwiftShader driver)', desk), 'low', 'SwiftShader → low');
+  eq(G.detectLevel('llvmpipe (LLVM 15.0.7, 256 bits)', desk), 0, 'llvmpipe → level 0');
+  eq(G.detectPreset('ANGLE (AMD, AMD Radeon(TM) Graphics Direct3D11 vs_5_0 ps_5_0)', desk), 'low', 'Radeon iGPU → low');
+  eq(G.detectPreset('ANGLE (Intel, Intel(R) UHD Graphics 620 Direct3D11)', desk), 'low', 'Intel UHD → low');
+  eq(G.detectPreset('ANGLE (Intel, Intel(R) Iris(R) Xe Graphics Direct3D11)', desk), 'balanced', 'Iris Xe → balanced');
+  eq(G.detectPreset('ANGLE (NVIDIA, NVIDIA GeForce GTX 1070 Direct3D11 vs_5_0 ps_5_0)', desk), 'high', 'GTX 1070 → high');
+  eq(G.detectPreset('ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 Direct3D11 vs_5_0 ps_5_0)', desk), 'ultra', 'RTX 4080 → ultra');
+  eq(G.detectLevel('ANGLE (NVIDIA, NVIDIA GeForce RTX 5090 Direct3D11 vs_5_0 ps_5_0)', desk), 20, 'RTX 5090 → level 20');
+  eq(G.detectPreset('ANGLE (NVIDIA, NVIDIA GeForce RTX 5090 Direct3D11 vs_5_0 ps_5_0)', desk), 'ultra', 'RTX 5090 → ultra');
+  eq(G.detectPreset('', desk), 'balanced', 'unknown GPU → balanced');
+  eq(G.presetForLevel(3), 'low', 'level 3 → low');
+  eq(G.presetForLevel(16), 'high', 'level 16 → high');
+  eq(G.detectPreset('Adreno (TM) 740', phone), 'balanced', 'phone Adreno 740 → balanced');
+  ok(G.detectLevel('Adreno (TM) 740', phone) <= 9, 'phones capped at level 9');
+  eq(G.detectPreset('NVIDIA GeForce RTX 5090', phone), 'balanced', 'touch/mobile caps Auto at balanced');
+  eq(G.detectPreset('Mali-G77', phone), 'low', 'Mali-G77 phone → low');
+  eq(G.detectPreset('SwiftShader', phone), 'low', 'software phone → low');
+  {
+    const order = ['low', 'balanced', 'high', 'ultra'];
+    const keys = ['crystals', 'dust', 'burst', 'bloomRes', 'hudBlur'];
+    for (const p of order) for (const k of keys) ok(G.BUDGETS[p][k] != null, `budget ${p}.${k}`);
+    for (let i = 1; i < order.length; i++) {
+      for (const k of keys) if (typeof G.BUDGETS.low[k] === 'number') ok(G.BUDGETS[order[i]][k] >= G.BUDGETS[order[i - 1]][k], `budget ${order[i]}.${k} grows`);
+    }
+    eq(JSON.stringify(G.resolve({ preset: 'ultra' }, 'low', 0).budget), JSON.stringify(G.resolve({ preset: 'ultra' }, 'ultra', 17).budget), 'manual Ultra keeps the Ultra floor budget');
+    ok(G.budgetFor('low', 3).crystals > G.budgetFor('low', 0).crystals, 'counts scale up with the level');
+    ok(G.budgetFor('low', 20).crystals <= 80, 'never beyond the crystal pool');
+    eq(G.resolve({ preset: 'balanced' }, 'low').scale, 0.9, 'Balanced renders at 0.9');
+  }
 
   let r = G.resolve({}, 'low');
   eq(r.preset, 'low', 'empty settings use the detected preset');
@@ -474,7 +498,7 @@ section('graphics quality model (js/gfx.js)');
   eq(G.resolve({ render_scale: 0.1 }, 'low').renderScale, 0.5, 'render scale clamps to 50%');
   eq(G.resolve({ preset: 'ultra', render_scale: 1 }, 'low').scale, 1.25, 'Ultra multiplies the render scale');
   eq(G.pixelRatio(G.resolve({ preset: 'low' }), 3), 1, 'Low caps the pixel ratio at 1');
-  eq(G.pixelRatio(G.resolve({ preset: 'balanced' }), 3), 1.5, 'Balanced caps the pixel ratio at 1.5');
+  eq(G.pixelRatio(G.resolve({ preset: 'balanced' }), 3), 1.35, 'Balanced caps the pixel ratio at 1.5 and renders at 0.9 (1.35)');
   eq(G.pixelRatio(G.resolve({ preset: 'high' }), 2, 0.6), 1.2, 'adaptive scale multiplies the pixel ratio');
 
   const cleared = G.choosePreset({ preset: 'high', bloom: 'off', shadows: 'low', render_scale: 1.5, show_fps: true }, 'low');

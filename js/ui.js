@@ -619,7 +619,7 @@
       var info = H.graphicsInfo && H.graphicsInfo();
       if (!summary) return;
       if (!info) { summary.textContent = G('post_unavailable'); return; }
-      summary.textContent = (info.gpu || G('unknown_gpu')) + ' · ' + GFX.describe(info.resolved, info.pixels, loc);
+      summary.textContent = (info.gpu || G('unknown_gpu')) + ' · ' + G('level', { n: info.level || 0 }) + ' · ' + GFX.describe(info.resolved, info.pixels, loc);
       note.hidden = !(info.resolved.post && info.postError);
     }
     function row(label, id, control, extra) {

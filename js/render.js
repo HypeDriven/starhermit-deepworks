@@ -194,8 +194,11 @@
       gpuName = String(dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER) || '');
     } catch (e) { gpuName = ''; }
     var mobile = !!opts.mobile;
-    var detected = GFX.detectPreset(gpuName, mobile);
-    g = GFX.resolve(gfxSaved, detected);
+    // StarHermit hardware level → Auto preset (SwiftShader = level 0 → Low; phones cap at Balanced).
+    var system = root.StarHermitGpu ? root.StarHermitGpu.detectSystem() : {};
+    var level = GFX.detectLevel(gpuName, Object.assign({}, system, { mobile: !!system.mobile || mobile }));
+    var detected = GFX.presetForLevel(level);
+    g = GFX.resolve(gfxSaved, detected, level);
 
     var canvas = renderer.domElement;
     canvas.style.position = 'absolute';
@@ -501,7 +504,7 @@
           crystals.setMatrixAt(ci, tmpM);
           crystals.setColorAt(ci, new THREE.Color().setHSL(0.06 + (ci % 5) * 0.025, 0.15, 0.58 + (ci % 4) * 0.12));
         }
-        crystals.count = GFX.CRYSTALS.plain;
+        crystals.count = GFX.CRYSTALS.plain; // setGraphics applies the preset budget
         crystals.instanceMatrix.needsUpdate = true;
         interior.add(crystals);
 
@@ -680,7 +683,7 @@
     var pCursor = 0;
 
     function spawnBurst(x, y, z, count, hex, speed, life, spread) {
-      var mult = GFX.PARTICLE_MULT[g.particles] * (reducedMotion ? 0.35 : 1);
+      var mult = GFX.PARTICLE_MULT[g.particles] * g.budget.burst * (reducedMotion ? 0.35 : 1);
       var n = Math.max(1, Math.round(count * mult));
       var r = ((hex >> 16) & 255) / 255;
       var g2 = ((hex >> 8) & 255) / 255;
@@ -1097,6 +1100,15 @@
     }
 
     // Post chain: scene (or SSAO beauty) → HDR bloom → tone map/grade → FXAA|SMAA.
+    // Run a post pass at a fraction of the frame (per-preset budget). EffectComposer sizes every pass to
+    // the full frame in addPass/setSize, so the pass's own setSize is wrapped to apply the scale.
+    function atScale(pass, k) {
+      if (!(k > 0 && k < 1)) return pass;
+      var setSize = pass.setSize.bind(pass);
+      pass.setSize = function (w, h) { setSize(Math.max(1, Math.round(w * k)), Math.max(1, Math.round(h * k))); };
+      return pass;
+    }
+
     function buildPost() {
       disposeComposer();
       postError = '';
@@ -1152,7 +1164,7 @@
           c.addPass(new THREE.RenderPass(scene, camera));
         }
         if (g.bloom === 'on') {
-          var bloom = new THREE.UnrealBloomPass(new THREE.Vector2(w, h), 0.5, 0.22, 0.88);
+          var bloom = atScale(new THREE.UnrealBloomPass(new THREE.Vector2(w, h), 0.5, 0.22, 0.88), g.budget.bloomRes);
           // HDR mip chain: 8-bit mips band into visible steps in the dark rock.
           bloom.renderTargetBright.texture.type = type;
           bloom.renderTargetsHorizontal.concat(bloom.renderTargetsVertical).forEach(function (t) { t.texture.type = type; });
@@ -1288,7 +1300,7 @@
     function setGraphics(saved) {
       gfxSaved = saved || {};
       var prev = g;
-      g = GFX.resolve(gfxSaved, detected);
+      g = GFX.resolve(gfxSaved, detected, level);
       if (!g.adaptive) adaptScale = 1;
       // shadows
       var size = GFX.SHADOW_MAP[g.shadows];
@@ -1321,9 +1333,9 @@
           rec.seamMat = mat;
           rec.crystals.material = mat;
         }
-        rec.crystals.count = GFX.CRYSTALS[g.detail];
+        rec.crystals.count = detailed ? g.budget.crystals : Math.min(GFX.CRYSTALS.plain, g.budget.crystals);
         rec.helmets.visible = detailed;
-        rec.dust.geometry.setDrawRange(0, GFX.DUST[g.particles]);
+        rec.dust.geometry.setDrawRange(0, Math.min(GFX.DUST[g.particles], g.budget.dust));
         rec.dustPlaced = false;
       }
       // post chain (rebuilt only when its shape changes)
@@ -1337,6 +1349,7 @@
       applyToneMapping();
       if (root.document && root.document.body) {
         root.document.body.dataset.gfxPreset = g.preset;
+        root.document.body.classList.toggle('gfx-hud-blur', !!g.budget.hudBlur);
       }
       updateFps();
       resize();
@@ -1347,7 +1360,7 @@
       var pr = renderer.getPixelRatio();
       var w = container.clientWidth || 1, h = container.clientHeight || 1;
       return {
-        gpu: gpuName, detected: detected, resolved: g, postError: postError,
+        gpu: gpuName, level: level, detected: detected, resolved: g, postError: postError,
         postActive: !!composer, pixels: [Math.round(w * pr), Math.round(h * pr)],
         adaptiveScale: adaptScale, fps: fpsValue
       };
