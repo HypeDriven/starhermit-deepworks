@@ -18,6 +18,10 @@
   var lastHudSig = '';
   var lastRailSig = '';
   var toastTimer = null;
+  // A press on the action rails or the tray holds their rebuild until it is
+  // released: a click only fires when press and release land on the same
+  // element, and the rails are rebuilt whenever credits or ore change.
+  var hudPressed = false;
 
   // Every player-facing string follows the game language (js/i18n.js, keyed
   // by the US-English text).
@@ -43,6 +47,19 @@
   // ------------------------------------------------------------ lifecycle ---
   function init(handlers) {
     H = handlers;
+    document.addEventListener('pointerdown', function (ev) {
+      var t = ev.target;
+      if (t && t.closest && t.closest('#hud-left, #hud-right, #hud-bottom')) hudPressed = true;
+    }, true);
+    ['pointerup', 'pointercancel'].forEach(function (name) {
+      document.addEventListener(name, function () {
+        if (!hudPressed) return;
+        hudPressed = false;
+        // The click event follows this release in the same task; the held-back
+        // rebuild runs on the next HUD update, after it.
+        lastRailSig = '';
+      }, true);
+    });
     // static wiring
     $('btn-play').addEventListener('click', function () { H.audio('ui_click'); show('modes'); });
     $('btn-daily').addEventListener('click', function () { H.audio('ui_click'); openSetup('daily'); });
@@ -822,11 +839,19 @@
       st.layers.map(function (L) { return [L.unlocked, L.workers, L.shaftLevel, L.milliOre >> 10]; }),
       st.flare.active ? st.flare.active.id : 0, st.tick >> 2, model.mode
     ]);
-    if (railSig !== lastRailSig) {
+    if (railSig !== lastRailSig && !hudPressed) {
       lastRailSig = railSig;
+      // Keyboard focus on an action button moves to the same action's new button.
+      var focused = document.activeElement;
+      var focusKey = focused && focused.dataset ? focused.dataset.action : null;
+      var focusHost = focusKey && focused.closest ? focused.closest('#hud-right, #hud-bottom') : null;
       buildLeftRail(model);
       buildRightRail(model);
       buildBottomTray(model);
+      if (focusHost) {
+        var again = focusHost.querySelector('[data-action="' + focusKey.replace(/["\\]/g, '\\$&') + '"]');
+        if (again) again.focus({ preventScroll: true });
+      }
     }
   }
 
@@ -872,6 +897,7 @@
 
   function actionButton(cmd, label, cost, legal, extra) {
     var b = btn('', null, function () { H.command(cmd); });
+    b.dataset.action = JSON.stringify(cmd);
     var span = el('span', null, label);
     b.appendChild(span);
     if (cost !== undefined && cost !== null) {
@@ -1003,7 +1029,12 @@
     if (!st.settings.holdRepeat) return b;
     var timer = null;
     b.addEventListener('pointerdown', function () {
-      timer = setInterval(function () { if (!b.disabled) b.click(); }, 260);
+      if (timer) clearInterval(timer);
+      timer = setInterval(function () {
+        // A button taken out of the HUD stops repeating.
+        if (!b.isConnected) { clearInterval(timer); timer = null; return; }
+        if (!b.disabled) b.click();
+      }, 260);
     });
     ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (ev) {
       b.addEventListener(ev, function () { if (timer) { clearInterval(timer); timer = null; } });
