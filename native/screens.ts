@@ -42,7 +42,8 @@ function layoutNow(): Layout {
   const sa = f.safeArea;
   const lw = Math.max(1, (f.width - sa.left - sa.right) / sc), lh = Math.max(1, (f.height - sa.top - sa.bottom) / sc);
   const shortLand = lw > lh && lh <= 500;
-  const phone = lw <= 640 || (primaryPointer() === "coarse" && lw <= 900);
+  // (max-width: 640px), (pointer: coarse) and (max-width: 900px); a short landscape window is a phone held sideways.
+  const phone = lw <= 640 || shortLand || (primaryPointer() === "coarse" && lw <= 900);
   return { lw, lh, sc, ox: sa.left / sc, oy: sa.top / sc, wide: lw >= 1024, phone, shortLand };
 }
 const lastSize = new Map<string, { w: number; h: number }>();
@@ -615,19 +616,28 @@ function reasonText(reason: string | undefined): string {
   return k ? T(k) : reason ?? "";
 }
 /** js/ui.js actionButton: the label, its cost (red while unaffordable), disabled with the reason as a tooltip. */
-function actionButton(id: string, label: string, cost: number | null, legal: Legal, width: number, act: () => void, hold = false): void {
+function actionButton(id: string, label: string, cost: number | null, legal: Legal, width: number, act: () => void, hold = false, compact = false): void {
   const cant = !legal.enabled && legal.reason === R.REASONS.INSUFFICIENT_FUNDS;
   const costText = cost != null ? R.formatCoins(cost) : "";
-  const inner = Math.max(20, width - 20);
+  // .btn padding 18 px a side and its border; the phone tray's buttons pad 6 px.
+  const inner = Math.max(20, width - (compact ? 14 : 40));
   const both = textWidth(label, "body") + (costText ? 8 + textWidth(costText, "cost") : 0);
   const opts: ui.ButtonOptions = {
     disabled: !legal.enabled,
     content: () => {
-      if (both <= inner) ui.row(`${id}-face`, () => { ui.style("body").label(label); if (costText) ui.style(cant ? "cost-cant" : "cost").label(costText); }, { spacing: 8, align: "center" });
-      else ui.column(`${id}-face`, () => { ui.style("body", { text: { align: "center" } }).paragraph(label, inner); if (costText) ui.style(cant ? "cost-cant" : "cost").label(costText); }, { spacing: 0, align: "center" });
+      // The face dims with the button (.btn:disabled { opacity: 0.45 }).
+      const dim = legal.enabled ? {} : { opacity: 0.45 };
+      const cost = (): void => { if (costText) ui.style(cant ? "cost-cant" : "cost", dim).label(costText); };
+      if (both <= inner) ui.row(`${id}-line`, () => { ui.style("body", dim).label(label); cost(); }, { spacing: 8, align: "center" });
+      else {
+        // Too narrow for one line: the cost goes under the label, which wraps only when it alone is too wide.
+        if (textWidth(label, "body") <= inner) ui.style("body", dim).label(label);
+        else ui.style("body", dim, { text: { align: "center" } }).paragraph(label, inner - 4);
+        cost();
+      }
     },
   };
-  let u = ui.style("btn", { width }).id(id);
+  let u = ui.style("btn", { width, ...(compact ? { padding: { start: 6, end: 6, top: 6, bottom: 6 } } : {}) }).id(id);
   if (!legal.enabled) u = u.tooltip(reasonText(legal.reason));
   let pressed = false;
   const r = ui.row(`${id}-wrap`, () => { pressed = u.button(label + (costText ? " " + costText : ""), opts); }, { spacing: 0 });
@@ -692,10 +702,9 @@ function rightRail(st: State, w: number): void {
   } else para(T("Tap a layer in the mine to crew and upgrade it."), w, "dim");
   para(T("Mine-wide"), w, "h3-accent");
   actionButton("act-hire", T("Hire worker"), R.hireCost(st), findLegal(legal, "hire"), w, () => doCommand({ type: "hire" }));
-  ui.row("fp-lift-row", () => {
-    actionButton("act-liftcap", T("Lift capacity"), R.liftCapCost(st), findLegal(legal, "upgrade_lift_cap"), half, () => doCommand({ type: "upgrade_lift_cap" }));
-    actionButton("act-liftspeed", T("Lift speed"), R.liftSpeedCost(st), findLegal(legal, "upgrade_lift_speed"), half, () => doCommand({ type: "upgrade_lift_speed" }));
-  }, { spacing: 6, align: "stretch" });
+  // The rail is too narrow for both lift buttons in a row: they wrap (flex-wrap), each a row wide.
+  actionButton("act-liftcap", T("Lift capacity"), R.liftCapCost(st), findLegal(legal, "upgrade_lift_cap"), w, () => doCommand({ type: "upgrade_lift_cap" }));
+  actionButton("act-liftspeed", T("Lift speed"), R.liftSpeedCost(st), findLegal(legal, "upgrade_lift_speed"), w, () => doCommand({ type: "upgrade_lift_speed" }));
   const nextIdx = R.nextLockedLayer(st);
   if (nextIdx >= 0) actionButton("act-unlock", T("Open Layer {n}", { n: nextIdx + 1 }), R.unlockCost(st), findLegal(legal, "unlock_layer"), w, () => doCommand({ type: "unlock_layer" }));
   if (st.ruleset.mechanics.foreman) {
@@ -724,7 +733,7 @@ function tray(st: State, L: Layout): number {
   const inner = L.lw - 20;
   const bw = (inner - gap * (items.length - 1)) / items.length;
   const r = ui.place("tray", { anchor: "bottom-start", x: 0, y: 0 }, () => {
-    ui.row("tray-row", () => { for (const it of items) actionButton(it.id, it.label, it.cost, it.legal, bw, it.act, it.hold); }, { style: "tray", width: L.lw, spacing: gap, align: "stretch" });
+    ui.row("tray-row", () => { for (const it of items) actionButton(it.id, it.label, it.cost, it.legal, bw, it.act, it.hold, true); }, { style: "tray", width: L.lw, spacing: gap, align: "stretch" });
   }, { width: L.lw });
   blockers.push(r);
   return r.height / L.sc;
@@ -759,7 +768,7 @@ function topBar(st: State, L: Layout): number {
             para(obj, objW - 28 - (two ? 0 : textWidth(T("Objective"), "hud-label") + 12), "hud-text", "objective-text");
           }, { spacing: 12, align: "center" });
           if (frac !== null) ui.progress(Math.min(1, frac), objW - 30);
-        }, { style: "hud-cell", width: objW, spacing: 4 });
+        }, { style: "hud-cell", width: objW, spacing: 4, justify: "center" });
         if (!two) ui.row("hud-resources", resources, { style: "hud-cell", spacing: 12, align: "center" });
         ui.row("hud-clock", () => {
           ui.style("res").id("hud-timer").label(timeText);
