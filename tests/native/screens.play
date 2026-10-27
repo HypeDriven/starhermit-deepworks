@@ -1,0 +1,72 @@
+# Every screen from the title and back: the mode cards, the Daily Vein's
+# rules sheet, Practice and Challenge lists, Journey, Leaderboards (this
+# device's casual boards), How to play, Profile (a guest name saved),
+# Settings (an option toggled); Escape backs
+# out of the screens.
+until 300 Daily Vein
+frames 60
+save title
+click Daily Vein
+until 60 ranked — same seed for everyone
+expect Time limit
+save daily-setup
+click =Back
+until 60 Assign. Upgrade.
+frames 5
+click =Play
+until 60 Choose your shift
+frames 5
+click Constrained shifts
+until 60 Challenges
+frames 10
+save challenges
+key Escape 1
+until 60 Choose your shift
+frames 5
+click Chase the boards
+until 60 Leaderboards
+expect Offline mode: boards are local to this device and marked casual.
+expect No entries yet. Be the first.
+save boards
+click =All-time
+frames 10
+expect Casual board (no server validation).
+click =Back
+until 60 Choose your shift
+frames 5
+click =← Back
+until 60 Assign. Upgrade.
+frames 5
+click =Journey
+until 60 0 of 40 stages complete
+save journey
+click =← Back
+until 60 Assign. Upgrade.
+frames 5
+click =How to play
+until 60 The loop
+expect Describe the current mine aloud
+save help
+key Escape 1
+until 60 Assign. Upgrade.
+frames 5
+click =Profile
+until 60 Mastery — level 1
+save profile
+click =Guest Prospector
+frames 5
+type {Backspace}{Backspace}{Backspace}{Backspace}{Backspace}{Backspace}{Backspace}{Backspace}{Backspace}{Backspace}{Backspace}{Backspace}{Backspace}{Backspace}{Backspace}{Backspace}Pit Boss
+frames 5
+click =Save
+until 30 Name saved
+key Escape 1
+until 60 Playing as Pit Boss
+frames 5
+click =Settings
+until 60 Text captions for sounds
+save settings
+click Camera sway
+frames 5
+frames 10
+key Escape 1
+until 60 Assign. Upgrade.

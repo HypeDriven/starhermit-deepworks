@@ -1,0 +1,65 @@
+# Practice (Miner) from the title: the countdown, a hire, the drawer's
+# Foreman's Panel (+ Assign, Upgrade shaft), Undo, the pause menu, End shift
+# & bank score with its confirmation, the results (the best on the Practice
+# card), Retry, then Leave shift back to the title.
+until 300 Daily Vein
+frames 30
+click =Play
+until 60 Choose your shift
+frames 5
+click Free play at your chosen difficulty
+until 60 Prospector
+frames 5
+click =Miner
+until 60 Start shift
+frames 5
+click =Start shift
+until 60 Endless shift
+expect 3
+frames 130
+key ArrowDown 1
+frames 3
+key KeyH 1
+frames 30
+expect 1/3
+click Toggle actions
+until 30 Foreman's Panel
+frames 10
+save practice-panel
+click + Assign
+frames 10
+expect 0/3
+key KeyZ 1
+frames 10
+expect Undone
+key Escape 1
+until 60 End shift & bank score
+frames 10
+save practice-pause
+click =End shift & bank score
+until 30 End this shift and bank your score?
+frames 5
+save practice-confirm
+click =Confirm
+until 120 Shift ended
+frames 30
+expect final score
+save practice-results
+# Retry has the focus.
+key Enter 1
+until 120 Endless shift
+frames 130
+key Escape 1
+until 60 Leave shift
+frames 5
+click =Leave shift
+until 30 Progress in this run will be lost.
+frames 5
+click =Confirm
+until 120 Daily Vein
+frames 5
+click =Play
+until 60 Choose your shift
+frames 5
+click Free play at your chosen difficulty
+until 60 Best:

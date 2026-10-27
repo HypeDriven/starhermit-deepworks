@@ -1,0 +1,45 @@
+# Learn › lesson 1 ("Hands in the Dark") from the title: the lesson card asks
+# for the idle worker on Layer 1 (selected by a click on its label, assigned
+# by Enter), then 10 credits; the lesson completes into the results.
+until 300 Daily Vein
+frames 30
+click =Play
+until 60 Choose your shift
+frames 10
+click Interactive lessons
+until 60 Hands in the Dark
+frames 10
+save learn-list
+click Hands in the Dark
+until 60 Start shift
+expect Lesson: Hands in the Dark
+frames 5
+click =Start shift
+until 60 Lesson 1/2
+frames 30
+save lesson-step-1
+click =L1
+frames 10
+expect Layer 1
+# Up from the top layer keeps L1 and hands the keys back from the label to the mine.
+key ArrowUp 1
+frames 5
+key Enter 1
+until 60 Lesson 2/2
+frames 10
+save lesson-step-2
+until 1200 Lesson complete!
+until 120 Shift ended
+frames 30
+save lesson-results
+expect final score
+key Tab 1
+frames 5
+key Enter 1
+until 120 Daily Vein
+click =Play
+until 60 Choose your shift
+frames 5
+click Interactive lessons
+until 60 Deeper Pockets
+expect ✓ Hands in the Dark

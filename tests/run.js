@@ -390,11 +390,7 @@ section('away simulation');
 
 section('lift presentation: docking, loading, and cargo');
 {
-  const vm = require('node:vm');
-  const fs = require('node:fs');
-  const context = { DWRules: R };
-  vm.runInNewContext(fs.readFileSync(require.resolve('../js/render.js'), 'utf8'), context);
-  const { planLiftTrip, sampleLiftTrip } = context.DWRender;
+  const { planLiftTrip, sampleLiftTrip } = require('../js/lift.js');
   const st = R.createState(22, { layerCount: 3, startUnlocked: 3, startWorkers: 0 });
   st.layers[2].milliOre = 2000;
   st.layers[0].milliOre = 2000;
@@ -441,87 +437,35 @@ section('lift presentation: docking, loading, and cargo');
   eq(planLiftTrip(st), null, 'disabled lift stays idle');
 }
 
-// ------------------------------------------------------ graphics model ---
-section('graphics quality model (js/gfx.js)');
+// ------------------------------------------------------ graphics looks ---
+// native/quality.ts: the browser build's js/gfx.js presets and budgets per
+// runtime quality tier, scaled within the tier by the graphics level.
+section('graphics looks (native/quality.ts)');
 {
-  const G = require('../js/gfx.js');
-  globalThis.StarHermitGpu = require('../gpu-level.js');
-  const desk = { webgl: true, webgl2: true, cores: 8, memoryGb: 8 };
-  const phone = { webgl: true, webgl2: true, mobile: true, cores: 8, memoryGb: 8 };
-  eq(G.detectPreset('ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero)), SwiftShader driver)', desk), 'low', 'SwiftShader → low');
-  eq(G.detectLevel('llvmpipe (LLVM 15.0.7, 256 bits)', desk), 0, 'llvmpipe → level 0');
-  eq(G.detectPreset('ANGLE (AMD, AMD Radeon(TM) Graphics Direct3D11 vs_5_0 ps_5_0)', desk), 'low', 'Radeon iGPU → low');
-  eq(G.detectPreset('ANGLE (Intel, Intel(R) UHD Graphics 620 Direct3D11)', desk), 'low', 'Intel UHD → low');
-  eq(G.detectPreset('ANGLE (Intel, Intel(R) Iris(R) Xe Graphics Direct3D11)', desk), 'balanced', 'Iris Xe → balanced');
-  eq(G.detectPreset('ANGLE (NVIDIA, NVIDIA GeForce GTX 1070 Direct3D11 vs_5_0 ps_5_0)', desk), 'high', 'GTX 1070 → high');
-  eq(G.detectPreset('ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 Direct3D11 vs_5_0 ps_5_0)', desk), 'ultra', 'RTX 4080 → ultra');
-  eq(G.detectLevel('ANGLE (NVIDIA, NVIDIA GeForce RTX 5090 Direct3D11 vs_5_0 ps_5_0)', desk), 20, 'RTX 5090 → level 20');
-  eq(G.detectPreset('ANGLE (NVIDIA, NVIDIA GeForce RTX 5090 Direct3D11 vs_5_0 ps_5_0)', desk), 'ultra', 'RTX 5090 → ultra');
-  eq(G.detectPreset('', desk), 'balanced', 'unknown GPU → balanced');
-  eq(G.presetForLevel(3), 'low', 'level 3 → low');
-  eq(G.presetForLevel(16), 'high', 'level 16 → high');
-  eq(G.detectPreset('Adreno (TM) 740', phone), 'balanced', 'phone Adreno 740 → balanced');
-  ok(G.detectLevel('Adreno (TM) 740', phone) <= 9, 'phones capped at level 9');
-  eq(G.detectPreset('NVIDIA GeForce RTX 5090', phone), 'balanced', 'touch/mobile caps Auto at balanced');
-  eq(G.detectPreset('Mali-G77', phone), 'low', 'Mali-G77 phone → low');
-  eq(G.detectPreset('SwiftShader', phone), 'low', 'software phone → low');
-  {
-    const order = ['low', 'balanced', 'high', 'ultra'];
-    const keys = ['crystals', 'dust', 'burst', 'bloomRes', 'hudBlur'];
-    for (const p of order) for (const k of keys) ok(G.BUDGETS[p][k] != null, `budget ${p}.${k}`);
-    for (let i = 1; i < order.length; i++) {
-      for (const k of keys) if (typeof G.BUDGETS.low[k] === 'number') ok(G.BUDGETS[order[i]][k] >= G.BUDGETS[order[i - 1]][k], `budget ${order[i]}.${k} grows`);
-    }
-    eq(JSON.stringify(G.resolve({ preset: 'ultra' }, 'low', 0).budget), JSON.stringify(G.resolve({ preset: 'ultra' }, 'ultra', 17).budget), 'manual Ultra keeps the Ultra floor budget');
-    ok(G.budgetFor('low', 3).crystals > G.budgetFor('low', 0).crystals, 'counts scale up with the level');
-    ok(G.budgetFor('low', 20).crystals <= 80, 'never beyond the crystal pool');
-    eq(G.resolve({ preset: 'balanced' }, 'low').scale, 0.9, 'Balanced renders at 0.9');
+  const { lookFor, POOLS, CRYSTALS_PLAIN } = require('../native/quality.ts');
+  const order = ['low', 'balanced', 'high', 'ultra'];
+  const floor = { low: 0, balanced: 2, high: 4, ultra: 7 };
+  eq(lookFor('low', 0).shadows, 0, 'Low has no shadows');
+  eq(lookFor('low', 0).bloom, false, 'Low has no bloom');
+  eq(lookFor('low', 0).detailed, false, 'Low is plain');
+  eq(lookFor('low', 9).budget.crystals, CRYSTALS_PLAIN, 'plain seams cap their crystals');
+  eq(lookFor('low', 9).budget.dust, 0, 'Low particles have no dust motes');
+  eq(lookFor('balanced', 2).shadows, 1024, 'Balanced shadows 1024');
+  eq(lookFor('high', 4).ao, 'on', 'High has ambient occlusion');
+  eq(lookFor('ultra', 7).ao, 'high', 'Ultra has high ambient occlusion');
+  eq(lookFor('high', 4).antialias, 'smaa', 'High antialiases with SMAA');
+  eq(lookFor('balanced', 2).budget.crystals, 32, 'Balanced floor budget');
+  eq(lookFor('ultra', 7).budget.crystals, 80, 'Ultra floor budget fills the pool');
+  for (let i = 1; i < order.length; i++) {
+    const a = lookFor(order[i - 1], floor[order[i - 1]]).budget, b = lookFor(order[i], floor[order[i]]).budget;
+    for (const k of ['crystals', 'dust', 'burst']) ok(b[k] >= a[k], `${order[i]}.${k} grows`);
   }
-
-  let r = G.resolve({}, 'low');
-  eq(r.preset, 'low', 'empty settings use the detected preset');
-  eq(r.auto, true, 'empty settings are Auto');
-  eq(r.post, false, 'Low draws without a post chain');
-  eq(r.shadows, 'off', 'Low has no shadows');
-  eq(r.adaptive, true, 'adaptive defaults on');
-  eq(r.showFps, false, 'fps readout defaults off');
-  r = G.resolve({ preset: 'high' }, 'low');
-  eq(r.auto, false, 'explicit preset is not Auto');
-  eq(r.ao, 'on', 'High preset tier for ao');
-  eq(r.post, true, 'High needs the post chain');
-  r = G.resolve({ preset: 'high', bloom: 'off', ao: 'off', grade: 'off', antialias: 'msaa' }, 'low');
-  eq(r.bloom, 'off', 'override beats the preset');
-  eq(r.post, false, 'no post chain when every post effect is overridden off');
-  eq(G.resolve({ preset: 'high', bloom: 'sparkly' }, 'low').bloom, 'on', 'invalid override falls back to the preset tier');
-  eq(G.resolve({ preset: 'bogus' }, 'balanced').preset, 'balanced', 'unknown preset → Auto');
-  eq(G.resolve({ render_scale: 5 }, 'low').renderScale, 2, 'render scale clamps to 200%');
-  eq(G.resolve({ render_scale: 0.1 }, 'low').renderScale, 0.5, 'render scale clamps to 50%');
-  eq(G.resolve({ preset: 'ultra', render_scale: 1 }, 'low').scale, 1.25, 'Ultra multiplies the render scale');
-  eq(G.pixelRatio(G.resolve({ preset: 'low' }), 3), 1, 'Low caps the pixel ratio at 1');
-  eq(G.pixelRatio(G.resolve({ preset: 'balanced' }), 3), 1.35, 'Balanced caps the pixel ratio at 1.5 and renders at 0.9 (1.35)');
-  eq(G.pixelRatio(G.resolve({ preset: 'high' }), 2, 0.6), 1.2, 'adaptive scale multiplies the pixel ratio');
-
-  const cleared = G.choosePreset({ preset: 'high', bloom: 'off', shadows: 'low', render_scale: 1.5, show_fps: true }, 'low');
-  eq(cleared.preset, 'low', 'choosePreset sets the preset');
-  eq(cleared.bloom, undefined, 'choosePreset clears overrides');
-  eq(cleared.shadows, undefined, 'choosePreset clears every override');
-  eq(cleared.render_scale, 1.5, 'choosePreset keeps render scale');
-  eq(cleared.show_fps, true, 'choosePreset keeps toggles');
-  eq(G.choosePreset({}, 'auto').preset, 'auto', 'choosePreset accepts Auto');
-  eq(G.presetTier('balanced', 'shadows'), 'low', 'presetTier reports the preset row');
-
-  ok(/no shadows/.test(G.describe(G.resolve({}, 'low'), [800, 600])), 'describe: Low has no shadows');
-  ok(/800×600 px/.test(G.describe(G.resolve({}, 'low'), [800, 600])), 'describe: pixel size');
-  ok(/2048² shadows/.test(G.describe(G.resolve({ preset: 'high' }))), 'describe: shadow map size');
-
-  const keys = Object.keys(G.CATEGORIES).map((c) => 'c_' + c).concat(['graphics', 'quality', 'auto', 'from_preset', 'render_scale', 'adaptive', 'show_fps', 'post_unavailable', 'p_low', 'p_balanced', 'p_high', 'p_ultra']);
-  ['en-US', 'en-GB', 'es-419', 'es-ES', 'de-DE', 'fr-FR', 'fr-CA', 'pt-BR', 'it-IT'].forEach((loc) => {
-    ok(G.LOCALES.includes(loc), 'graphics strings ship ' + loc);
-    keys.forEach((k) => ok(G.t(loc, k) !== k, `${loc} has ${k}`));
-  });
-  eq(G.pickLocale('de'), 'de-DE', 'base language falls back to its locale');
-  eq(G.pickLocale('es-MX'), 'es-419', 'Latin-American Spanish');
-  eq(G.pickLocale('ja-JP'), 'en-US', 'unsupported language → en-US');
+  ok(lookFor('balanced', 3).budget.crystals > lookFor('balanced', 2).budget.crystals, 'counts scale up with the level');
+  for (const p of order) for (let lv = 0; lv <= 9; lv++) {
+    const b = lookFor(p, lv).budget;
+    ok(b.crystals <= POOLS.crystals && b.dust <= POOLS.dust, `${p}@${lv} within the pools`);
+    ok(lookFor(p, lv).budget.crystals >= lookFor(p, Math.max(0, lv - 1)).budget.crystals, `${p}@${lv} never shrinks with the level`);
+  }
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);
