@@ -53,7 +53,7 @@ const { launchChrome } = await import('/home/albert/games/tools/gpu-chrome.mjs')
 const { browser, gpu, close } = await launchChrome(chromium);
 console.log(`# chrome on ${gpu}`);
 let failed = false;
-const dsf = 3; // 1.16.4 draws DPR 3 on the GPU path again
+const dsf = 3; // 1.17.0 draws DPR 3 on the GPU path again
 const play = [
   ['shot', 'title'], ['key', 'Enter'], ['shot', 'modes'], ['key', 'Tab'], ['key', 'Tab'], ['key', 'Tab'], ['key', 'Enter'], ['shot', 'practice'],
   ['key', 'Tab'], ['key', 'Tab'], ['key', 'Enter'], ['shot', 'setup'], ['key', 'Tab'], ['key', 'Enter'], ['wait', 3000], ['shot', 'shift'],
