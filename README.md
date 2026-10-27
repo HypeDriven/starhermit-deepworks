@@ -6,13 +6,17 @@ bottleneck, fix it, automate — and keep earning while you're away.
 
 ## Run it
 
-Any static file server works:
+Deepworks is a StarHermit engine script game (engine 1.16.4): the StarHermit
+client plays it natively, browsers through the engine's web runtime.
 
 ```
-node server.js        # serves the game + API on http://localhost:8080
+starhermit .                 # play natively (STARHERMIT runtime from ~/sh/runtime)
+npm run package              # write the web loader index.html + starhermit-files.json
+node server.js               # serve the packaged folder (and a dev /api) on http://localhost:8080
 ```
 
-or `python3 -m http.server` / any static host, then open `index.html`.
+Run `npm run package` after every change and commit `index.html` and
+`starhermit-files.json`.
 
 ## Modes
 
@@ -25,10 +29,13 @@ or `python3 -m http.server` / any static host, then open `index.html`.
 
 ## Controls
 
-Pointer/touch: tap a layer, then use the Foreman's Panel. Keyboard: ↑/↓ select
-layer, Enter assign, U recall, H hire, Q shaft, W lift capacity, E lift speed,
-D open layer, F claim flare, G foreman, Z undo, Esc pause. Gamepad: D-pad
-select, A confirm, B recall, Start pause.
+Pointer/touch: tap a layer (or its label), then use the Foreman's Panel or the
+phone's tray; drag the mine to turn it. Keyboard: ↑/↓ select layer, Enter
+assign, U recall, H hire, Q shaft, W lift capacity, E lift speed, D open
+layer, F claim flare, G foreman, Z undo, Esc pause. Gamepad: D-pad select, A
+assign / claim, B recall, Y hire, X flare, shoulders and triggers for
+upgrades, Start pause. Keys and buttons are rebindable in the runtime's
+Options.
 
 ## Architecture
 
@@ -36,25 +43,26 @@ select, A confirm, B recall, Start pause.
 |---|---|
 | `js/rules.js` | Pure deterministic rules engine: legal-action queries, fixed-point integer sim, seeded RNG, scoring, serialization |
 | `js/content.js` | Versioned content: 5 themes, lessons, 40 stages, challenges, self-calibrating daily generator, offline validators |
-| `js/session.js` | Command dispatch (idempotent by command id), input log / replay envelope, undo, autosave, away sim |
-| `js/render.js` | Three.js (r128, vendored) scene: procedural mine, instanced seams, quality tiers, reduced-motion |
-| `js/ui.js` | Semantic HTML shell: screens, HUD, accessibility mirror, settings |
-| `js/audio.js` | Synthesized WebAudio: 4 buses, adaptive music, captions |
-| `js/platform.js` | StarHermit adapter: launch token, server-time sync, boards, achievements, telemetry consent; offline fallback |
-| `js/main.js` | Bootstrap + state machine + input mapping |
-| `server.js` | Zero-dep Node static + API server; replay-validated daily leaderboard |
+| `js/session.js` | Command dispatch (idempotent by command id), input log / replay envelope, undo, autosave, away sim, profile |
+| `js/lift.js` | The lift's cosmetic itinerary |
+| `native/main.ts` | Entry: state machine, runs on the runtime's fixed steps, input, lifecycle |
+| `native/screens.ts` | Screens and HUD on `starhermit:ui` |
+| `native/render.ts` | The mine on `starhermit:scene`, looks per graphics level (`native/quality.ts`) |
+| `native/audio.ts` | Clips on the runtime's buses, rendered rumble and music, captions |
+| `native/platform.ts` | Engine save (with the browser build's cloud save migrated), settings, clock, boards, score posting |
+| `score-script.js` | StarHermit platform script: range-checks a finished run's score for the `high-score` board |
+| `server.js` | Dev-only static + API server (not packaged) |
 
 ## Tests
 
 ```
-node tests/run.js       # 5200+ assertions: rules, replay determinism, fuzz, content validation, golden sessions
-node tests/balance.js   # bot plays every stage/challenge/daily and reports completion vs par
-node tests/smoke.js     # headless-Chrome UI drive (needs google-chrome)
+npm test                 # unit, save and i18n tests, then tsc, starhermit check and the play scripts
+npm run test:browser     # the packaged loader in Chrome on the GPU at desktop, phone and landscape
+node tests/balance.js    # bot plays every stage/challenge/daily and reports completion vs par
 ```
 
 ## StarHermit
 
-`starhermit.txt` declares `name=Deepworks`, `launch=index.html`,
-`server=server.js`. When hosted, the game reads scope from the launch token,
-syncs UTC day boundaries against `/api/v1/time`, and submits daily scores with
-the full input log for authoritative replay validation.
+See `spec.md` §12: the profile is the engine save synced to the account,
+finished Journey, Daily and Challenge runs post to the `high-score` board
+through `score-script.js`, and the Daily Vein follows the platform clock.
