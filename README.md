@@ -6,7 +6,7 @@ bottleneck, fix it, automate — and keep earning while you're away.
 
 ## Run it
 
-Deepworks is a StarHermit engine script game (engine 1.23.0): the StarHermit
+Deepworks is a StarHermit engine script game (engine 1.24.0): the StarHermit
 client plays it natively, browsers through the engine's web runtime.
 
 ```

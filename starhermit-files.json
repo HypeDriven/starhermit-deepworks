@@ -8,7 +8,7 @@
     "assets/ui-style.json": {"sha256": "49c0c06eb450278a5fb59bc06508dd71ef778edb1701e5266312602b38ad18bf", "size": 14988},
     "cover.jpg": {"sha256": "c88ddf7a54d2ecd8f81b18e161a871accce01fbf3be1147d476c1957b9a4a102", "size": 420377},
     "icon.png": {"sha256": "3c3d80bf51d766ae3e88243ac2400d13601a2b17205cc81ad6724dde7b913d0b", "size": 7883},
-    "index.html": {"sha256": "ff41fcd08ffdeb244b640fe03a522d8aae2ffd510a471b7092851120cce81c7b", "size": 1754},
+    "index.html": {"sha256": "6cbb179395fa67830a8beee3d9c5b30e56e5ba8e08bed50f2a76cd8ee33ea2ca", "size": 1754},
     "js/content.js": {"sha256": "bc25ba849192443444746f081d17605491f75ed590d60c86977afba291faa250", "size": 31088},
     "js/i18n.js": {"sha256": "a28425ed58c6a039cc43139a8a53a3573a8a55035632d9907c43ad4720188493", "size": 4040},
     "js/lift.js": {"sha256": "9558b5e0f98768afdb23973842eaeaf5f329a90dbafb8fbc4752e6770b868d56", "size": 3679},
@@ -55,7 +55,7 @@
     "sfx/worker-assign.opus": {"sha256": "9bf9b7aecf1780bf622edae797bcc67140073bdbd32ec431efdbb76c4604e038", "size": 10624},
     "sfx/worker-hire.opus": {"sha256": "8a166ea7b8dc505735b387cadd9074c278a3653ab827ac2df4d7bea6b6894344", "size": 16142},
     "sfx/worker-recall.opus": {"sha256": "17b3f0116d3db7193b756b2c6e0adafc902a98d2094e6b79c66a5cfaccccdf1c", "size": 15308},
-    "starhermit.txt": {"sha256": "086dd8a1e4c362597558895194cd335d2458313e6b4aafae5d40bdfd8ef5cf7a", "size": 2253}
+    "starhermit.txt": {"sha256": "7cabb92f2ac70b97fcd84f9c269fa52d74cf030f2dc6205c40bc9db66fca4144", "size": 2253}
   },
   "excluded": ["README.md", "coverart.png", "data/", "knownissues.md", "node_modules/", "package-lock.json", "package.json", "server.js", "spec.md", "tests/", "tools/", "tsconfig.json"],
   "format": 1
