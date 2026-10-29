@@ -15,8 +15,8 @@
 //
 // Gaps and changes from three.js r128: colours keep r128's meaning (its
 // pigment() swatches are the engine's sRGB hex, its raw hex values linear);
-// r128's legacy light intensities are the engine's convention already, but
-// its point-light cut-off falloff became the inverse square, so the layer
+// r128's legacy light intensities × π (engine minor 28 uses three r155+ units),
+// the page's light-space shadow box, the room on every standard material; its point-light cut-off falloff became the inverse square, so the layer
 // lamps are brighter at the source; the post chain is renderer.ao / bloom /
 // grade / antialias (the grade the old output pass's S-curve, saturation,
 // warm-highlight / cool-shadow split and vignette in display space); the
@@ -29,7 +29,7 @@ import { loadClassic } from "starhermit:script";
 import {
   ACESFilmicToneMapping, AdditiveBlending, Box3, BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, Color, ConeGeometry,
   CylinderGeometry, DirectionalLight, DoubleSide, DynamicDrawUsage, EdgesGeometry, Euler, Fog, Group, HemisphereLight,
-  InstancedMesh, LineBasicMaterial, LineSegments, LinearSRGBColorSpace, Matrix4, Mesh, MeshBasicMaterial, MeshPhysicalMaterial,
+  InstancedMesh, OrthographicCamera, LineBasicMaterial, LineSegments, LinearSRGBColorSpace, Matrix4, Mesh, MeshBasicMaterial, MeshPhysicalMaterial,
   MeshStandardMaterial, OctahedronGeometry, PerspectiveCamera, PlaneGeometry, PMREMGenerator, PointLight, Points, PointsMaterial,
   Quaternion, Ray, RepeatWrapping, RingGeometry, RoomEnvironment, SphereGeometry, SRGBColorSpace, TorusGeometry, Vector3,
   renderer, scene, type Texture,
@@ -177,20 +177,20 @@ scene.background = makeSkyTexture(theme);
 scene.fog = new Fog(lin(theme.fog), CONFIG.fogNear, CONFIG.fogFar);
 
 // -------------------------------------------------------------- lights ---
-const keyLight = new DirectionalLight(lin(theme.key), 1.25);
+const keyLight = new DirectionalLight(lin(theme.key), 1.25 * PI);
 keyLight.position.set(14, 16, 22);
 keyLight.shadow.bias = -0.0004;
 keyLight.shadow.normalBias = 0.02;
 keyLight.target.position.set(0, -7, 0);
 scene.add(keyLight);
 scene.add(keyLight.target);
-const hemiLight = new HemisphereLight(lin(theme.fill), lin(theme.rockDark), 1.3);
+const hemiLight = new HemisphereLight(lin(theme.fill), lin(theme.rockDark), 1.3 * PI);
 scene.add(hemiLight);
-const rimLight = new DirectionalLight(lin(theme.fill), 1.1);
+const rimLight = new DirectionalLight(lin(theme.fill), 1.1 * PI);
 rimLight.position.set(-12, 2, 8);
 scene.add(rimLight);
 /** r128's lamp (1.2, cut off at 14 with decay 2) at the cavern's walls, under the inverse square. */
-const LAMP = 3.4;
+const LAMP = 3.4 * PI;
 
 // ----------------------------------------------------------- materials ---
 const rockMat = new MeshStandardMaterial({ color: 0xffffff, map: rockTex, roughness: 0.95, metalness: 0.02, bumpScale: 0.035, envMapIntensity: 0.18 });
@@ -693,6 +693,8 @@ export function setView(x: number, y: number, w: number, h: number, Wd: number, 
   frame();
 }
 function frame(): void {
+  camera.aspect = view.w / view.h;
+  camera.updateProjectionMatrix();
   camera.setViewOffset(view.w, view.h, -view.x, -view.y, view.W, view.H);
   const aspect = view.w / view.h;
   const tanHalf = Math.tan((CONFIG.fov * PI / 180) / 2);
@@ -713,9 +715,22 @@ function fitShadow(layerCount: number): void {
   const n = Math.max(1, Math.min(CONFIG.maxLayers, layerCount));
   const yTop = CONFIG.surfaceY + 3.0;
   const yBot = CONFIG.firstLayerY - (n - 1) * CONFIG.spacing - H / 2 - 1.0;
-  const radius = Math.hypot(W / 2 + 1, (yTop - yBot) / 2, D);
-  // The engine fits the directional shadow to the view out to `distance` (r128 fitted its ortho camera).
-  keyLight.shadow.distance = CONFIG.camPos.z * frameDist + radius * 2;
+  // The page's shadow box: the mine's bounding box in light space.
+  const xs = [-W / 2 - 1, W / 2 + 1], ys = [yBot, yTop], zs = [-D / 2 - 0.6, D / 2 + 1.2];
+  const lv = new Matrix4().lookAt(keyLight.position, keyLight.target.position, camera.up);
+  lv.setPosition(keyLight.position);
+  lv.invert();
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, minZ = Infinity, maxZ = -Infinity;
+  for (const x of xs) for (const y of ys) for (const z of zs) {
+    const v = new Vector3(x, y, z).applyMatrix4(lv);
+    minX = Math.min(minX, v.x); maxX = Math.max(maxX, v.x);
+    minY = Math.min(minY, v.y); maxY = Math.max(maxY, v.y);
+    minZ = Math.min(minZ, v.z); maxZ = Math.max(maxZ, v.z);
+  }
+  const sc = keyLight.shadow.camera as OrthographicCamera;
+  sc.left = minX - 0.5; sc.right = maxX + 0.5; sc.bottom = minY - 0.5; sc.top = maxY + 0.5;
+  sc.near = Math.max(0.5, -maxZ - 2); sc.far = -minZ + 2;
+  sc.updateProjectionMatrix();
 }
 
 // ----------------------------------------------------- projection, picking ---
@@ -804,6 +819,7 @@ export function setTheme(th: Theme): void {
   const oldSky = scene.background as Texture | null;
   scene.background = makeSkyTexture(theme);
   if (oldSky && "dispose" in oldSky) oldSky.dispose();
+  bindEnv();
 }
 
 let envTex: Texture | null = null;
@@ -814,6 +830,17 @@ function envMap(): Texture | null {
   }
   return envTex;
 }
+/** r128's scene.environment honoured each material's envMapIntensity; three r163+ (the engine) applies
+ * scene.environmentIntensity instead, so every standard material takes the room as its own envMap. */
+function bindEnv(): void {
+  const env = look?.reflections ? envMap() : null;
+  scene.traverse((o) => {
+    const m = (o as Mesh).material as MeshStandardMaterial | MeshStandardMaterial[] | undefined;
+    for (const x of Array.isArray(m) ? m : m ? [m] : []) {
+      if ("envMapIntensity" in x && x.envMap !== env) { x.envMap = env; }
+    }
+  });
+}
 /** The graphics level's look (quality.ts), applied live. */
 export function applyLook(next: Look): void {
   if (look && JSON.stringify(look) === JSON.stringify(next)) return;
@@ -822,7 +849,7 @@ export function applyLook(next: Look): void {
   renderer.shadowMap.enabled = shadows;
   keyLight.castShadow = shadows;
   if (shadows) keyLight.shadow.mapSize = next.shadows;
-  scene.environment = next.reflections ? envMap() : null;
+  bindEnv();
   rockMat.bumpMap = next.detailed ? rockTex : null;
   lockedMat.bumpMap = next.detailed ? crackTex : null;
   for (const rec of layers) {
