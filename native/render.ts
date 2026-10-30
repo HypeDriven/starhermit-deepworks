@@ -871,7 +871,8 @@ export function applyLook(next: Look): void {
     samples: next.ao === "high" ? 16 : 8, resolution: next.ao === "high" ? 1 : 0.5,
     denoise: { lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: next.ao === "high" ? 6 : 4, rings: 2, samples: next.ao === "high" ? 16 : 8, radiusExponent: 2 },
   };
-  renderer.bloom = next.bloom ? { strength: 0.5, radius: 0.22, threshold: 0.88, resolution: next.budget.bloomRes } : null;
+  // minor 29 bloom follows r185's UnrealBloomPass; this page ran three r128, so the strength is squared (0.5² ≈ 0.25) to keep its look.
+  renderer.bloom = next.bloom ? { strength: 0.25, radius: 0.22, threshold: 0.88, resolution: next.budget.bloomRes } : null;
   // The output pass's grade (display space): a 0.22 S-curve, saturation 1.1,
   // cool shadows / warm highlights, a slight lift and the 0.28 vignette.
   renderer.grade = next.grade ? {
