@@ -871,12 +871,12 @@ export function applyLook(next: Look): void {
     samples: next.ao === "high" ? 16 : 8, resolution: next.ao === "high" ? 1 : 0.5,
     denoise: { lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: next.ao === "high" ? 6 : 4, rings: 2, samples: next.ao === "high" ? 16 : 8, radiusExponent: 2 },
   };
-  // minor 29 bloom follows r185's UnrealBloomPass; this page ran three r128, so the strength is squared (0.5² ≈ 0.25) to keep its look.
-  renderer.bloom = next.bloom ? { strength: 0.25, radius: 0.22, threshold: 0.88, resolution: next.budget.bloomRes } : null;
+  // minor 30: this page ran three r128, so r160's UnrealBloomPass (model "r160", r169 and older) at the page's own strength.
+  renderer.bloom = next.bloom ? { model: "r160", strength: 0.5, radius: 0.22, threshold: 0.88, resolution: next.budget.bloomRes } : null;
   // The output pass's grade (display space): a 0.22 S-curve, saturation 1.1,
-  // cool shadows / warm highlights, a slight lift and the 0.28 vignette.
+  // cool shadows / warm highlights, the s * 0.97 + 0.018 lift and the 0.28 vignette.
   renderer.grade = next.grade ? {
-    space: "display", contrast: 0.12, saturation: 1.1,
+    space: "display", contrastCurve: "s", contrast: 0.22, saturation: 1.1, levels: [0.97, 0.018],
     shadows: [0.95, 0.98, 1.06], highlights: [1.05, 1.0, 0.94], split: [0.15, 0.75],
     vignette: { amount: 0.28, inner: 0.38, outer: 0.9, scale: [1.1, 1] },
   } : null;
