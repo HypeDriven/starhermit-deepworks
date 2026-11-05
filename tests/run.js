@@ -455,7 +455,7 @@ section('graphics looks (native/quality.ts)');
   const anchors = ['quantum', 'molecular', 'terrestrial', 'galactic'];
   eq(at('quantum').shadows, 0, 'Low has no shadows');
   eq(at('quantum').bloom, null, 'Low has no bloom');
-  eq(at('quantum').antialias, 'msaa', 'Low keeps MSAA (engine 1.36.1 "off" recolours fog)');
+  eq(at('quantum').antialias, 'off', 'Low takes the level anti-aliasing (engine 1.36.2 fixed off)');
   eq(at('quantum').detailed, false, 'Low is plain');
   eq(at('atomic').budget.crystals, CRYSTALS_PLAIN, 'plain seams cap their crystals');
   eq(at('atomic').budget.dust, 0, 'Low particles have no dust motes');
