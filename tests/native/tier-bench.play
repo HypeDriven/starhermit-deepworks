@@ -1,0 +1,74 @@
+# Graphics-tier bench (tools/engine-tier-bench.mjs): Journey stage 1 (First
+# Shift, a fixed mine; the moves journey-first-stage.play makes), settled,
+# then the opening hires and assignments measured with the mine running.
+until 300 Daily Vein
+frames 30
+click Journey
+until 60 stages complete
+frames 10
+click Stage 1 First Shift
+until 60 Start shift
+expect Assign workers, hire when you can.
+frames 5
+click =Start shift
+until 200 Earn 500 credits
+frames 130
+measure start
+key ArrowDown 1
+frames 3
+key KeyH 1
+key Enter 1
+key KeyW 1
+key KeyE 1
+key KeyQ 1
+frames 53
+key KeyH 1
+key Enter 1
+key KeyW 1
+key KeyE 1
+key KeyQ 1
+frames 53
+key KeyH 1
+key Enter 1
+key KeyW 1
+key KeyE 1
+key KeyQ 1
+frames 53
+key KeyH 1
+key Enter 1
+key KeyW 1
+key KeyE 1
+key KeyQ 1
+frames 53
+key KeyH 1
+key Enter 1
+key KeyW 1
+key KeyE 1
+key KeyQ 1
+frames 53
+key KeyH 1
+key Enter 1
+key KeyW 1
+key KeyE 1
+key KeyQ 1
+frames 53
+key KeyH 1
+key Enter 1
+key KeyW 1
+key KeyE 1
+key KeyQ 1
+frames 53
+key KeyH 1
+key Enter 1
+key KeyW 1
+key KeyE 1
+key KeyQ 1
+frames 53
+key KeyH 1
+key Enter 1
+key KeyW 1
+key KeyE 1
+key KeyQ 1
+frames 53
+frames 120
+measure stop

@@ -153,7 +153,7 @@ function makeCrackTexture(th: Theme, sealed: boolean): Texture {
   }
   const t = new CanvasTexture(c);
   t.colorSpace = SRGBColorSpace;
-  t.anisotropy = 4;
+  t.anisotropy = look?.anisotropy ?? 4;
   t.wrapS = RepeatWrapping;
   t.wrapT = RepeatWrapping;
   t.repeat.set(3, 1);
@@ -850,7 +850,9 @@ export function applyLook(next: Look): void {
   const shadows = next.shadows > 0;
   renderer.shadowMap.enabled = shadows;
   keyLight.castShadow = shadows;
-  if (shadows) keyLight.shadow.mapSize = next.shadows;
+  if (shadows) keyLight.shadow.mapSize = next.shadows; // the level's size: the runtime keeps a game's mapSize
+  // The level's anisotropic filtering on the rock and the sealed layers' cracks.
+  for (const t of [rockTex, crackTex]) if (t.anisotropy !== next.anisotropy) { t.anisotropy = next.anisotropy; t.needsUpdate = true; }
   bindEnv();
   rockMat.bumpMap = next.detailed ? rockTex : null;
   lockedMat.bumpMap = next.detailed ? crackTex : null;
@@ -868,13 +870,15 @@ export function applyLook(next: Look): void {
     rec.dustPlaced = false;
   }
   // The old post chain: SSAO (kernel 0.7, 0.9 on high), HDR bloom (0.5, 0.22, 0.88), the output grade.
-  renderer.ao = next.ao === "off" ? null : {
-    blendIntensity: 0.8, radius: next.ao === "high" ? 0.9 : 0.7, distanceExponent: 1.2, thickness: 1.0, scale: 1.0,
-    samples: next.ao === "high" ? 16 : 8, resolution: next.ao === "high" ? 1 : 0.5,
-    denoise: { lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: next.ao === "high" ? 6 : 4, rings: 2, samples: next.ao === "high" ? 16 : 8, radiusExponent: 2 },
+  // The level's AO resolution and samples; full resolution is the engine's "high" (the old high kernel).
+  const ao = next.ao, full = !!ao && ao.resolution >= 1;
+  renderer.ao = ao && {
+    blendIntensity: 0.8, radius: full ? 0.9 : 0.7, distanceExponent: 1.2, thickness: 1.0, scale: 1.0,
+    samples: ao.samples, resolution: ao.resolution,
+    denoise: { lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: full ? 6 : 4, rings: 2, samples: ao.denoiseSamples, radiusExponent: 2 },
   };
   // minor 30: this page ran three r128, so r160's UnrealBloomPass (model "r160", r169 and older) at the page's own strength.
-  renderer.bloom = next.bloom ? { model: "r160", strength: 0.5, radius: 0.22, threshold: 0.88, resolution: next.budget.bloomRes } : null;
+  renderer.bloom = next.bloom !== null ? { model: "r160", strength: 0.5, radius: 0.22, threshold: 0.88, resolution: next.bloom } : null;
   // The output pass's grade (display space): a 0.22 S-curve, saturation 1.1,
   // cool shadows / warm highlights, the s * 0.97 + 0.018 lift and the 0.28 vignette.
   renderer.grade = next.grade ? {

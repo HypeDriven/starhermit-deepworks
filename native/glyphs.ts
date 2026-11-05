@@ -1,50 +1,47 @@
-// The browser build's text symbols drawn as shapes (the engine's fonts lack
-// some of them in browsers): ◈ credits, ↻ income, ⚒ workers, 🔒 sealed,
-// ✦ flare, ▲ a full bin, ⏸ pause. Each draws centred at (x, y), `s` window
-// pixels tall, and is a ui.widget of role "none" sized in logical pixels.
+// The browser build's text symbols: ◈ credits, ↻ income, ⚒ workers,
+// 🔒 sealed, ✦ flare, ▲ a full bin, ⏸ pause. They draw as font characters,
+// as the browser build did: a system face draws one where it has it, else the
+// engine's StarHermit Emoji, which covers all seven (🔒 in its own colours,
+// the rest text style in the given colour). Each draws centred on its
+// measured ink box at (x, y), `s` window pixels tall, and is a ui.widget of
+// role "none" sized in logical pixels.
 import * as draw from "starhermit:draw";
 import * as ui from "starhermit:ui";
+import { fonts, OffscreenCanvas, type OffscreenCanvasRenderingContext2D } from "starhermit:canvas";
 
 export type Glyph = "credits" | "income" | "workers" | "lock" | "flare" | "warn" | "pause";
+const CHARS: Record<Glyph, string> = { credits: "◈", income: "↻", workers: "⚒", lock: "🔒", flare: "✦", warn: "▲", pause: "⏸" };
+const FONT = "sans-serif";
+/** The glyph's ink box fills this share of `s` (the old drawn shapes' size). */
+const FILL = 0.9;
+const REF = 100;
+
+// Ask for the faces now (the emoji font loads only when text first needs it);
+// until they are in, a glyph's ink box is measured again each draw.
+fonts.load(`${REF}px ${FONT}`, Object.values(CHARS).join("")).catch(() => undefined);
+
+interface Ink { scale: number; dx: number; dy: number; asc: number }
+const inks = new Map<Glyph, Ink>();
+let probe: OffscreenCanvasRenderingContext2D | null = null;
+/** A glyph's ink box at REF px: font size per pixel of `s`, and its centre's offset from (align center, baseline). */
+function ink(g: Glyph): Ink {
+  let m = inks.get(g);
+  if (m) return m;
+  probe ??= new OffscreenCanvas(4, 4).getContext("2d")!;
+  probe.font = `${REF}px ${FONT}`;
+  probe.textAlign = "center";
+  probe.textBaseline = "alphabetic";
+  const t = probe.measureText(CHARS[g]);
+  const w = t.actualBoundingBoxLeft + t.actualBoundingBoxRight, h = t.actualBoundingBoxAscent + t.actualBoundingBoxDescent;
+  m = { scale: (FILL * REF) / Math.max(1, w, h), dx: (t.actualBoundingBoxRight - t.actualBoundingBoxLeft) / 2 / REF, dy: (t.actualBoundingBoxDescent - t.actualBoundingBoxAscent) / 2 / REF, asc: t.fontBoundingBoxAscent / REF };
+  if (fonts.check(`${REF}px ${FONT}`, CHARS[g])) inks.set(g, m);
+  return m;
+}
 
 export function drawGlyph(g: Glyph, x: number, y: number, s: number, color: string): void {
-  const h = s / 2;
-  const lw = Math.max(1, s * 0.12);
-  switch (g) {
-    case "credits":
-      draw.polygon([[x, y - h], [x + h, y], [x, y + h], [x - h, y]], color);
-      draw.polygon([[x, y - h * 0.62], [x + h * 0.62, y], [x, y + h * 0.62], [x - h * 0.62, y]], "#00000088");
-      draw.polygon([[x, y - h * 0.34], [x + h * 0.34, y], [x, y + h * 0.34], [x - h * 0.34, y]], color);
-      break;
-    case "income": {
-      const r = h * 0.72;
-      draw.strokeArc(x, y, r, -Math.PI * 0.35, Math.PI * 1.35, color, lw);
-      const ax = x + Math.cos(-Math.PI * 0.35) * r, ay = y + Math.sin(-Math.PI * 0.35) * r;
-      draw.polygon([[ax - h * 0.42, ay - h * 0.12], [ax + h * 0.22, ay - h * 0.32], [ax + h * 0.05, ay + h * 0.32]], color);
-      break;
-    }
-    case "workers":
-      // A pick: a curved head over a handle.
-      draw.line(x - h * 0.75, y + h * 0.8, x + h * 0.55, y - h * 0.5, color, lw * 1.2);
-      draw.strokeArc(x + h * 0.25, y - h * 0.2, h * 0.75, -Math.PI * 0.95, -Math.PI * 0.05, color, lw * 1.3);
-      break;
-    case "lock":
-      draw.strokeArc(x, y - h * 0.15, h * 0.4, Math.PI, Math.PI * 2, color, lw);
-      draw.line(x - h * 0.4, y - h * 0.15, x - h * 0.4, y + h * 0.05, color, lw);
-      draw.line(x + h * 0.4, y - h * 0.15, x + h * 0.4, y + h * 0.05, color, lw);
-      draw.roundRect(x - h * 0.62, y, h * 1.24, h * 0.92, h * 0.12, color);
-      break;
-    case "flare":
-      draw.polygon([[x, y - h], [x + h * 0.22, y - h * 0.22], [x + h, y], [x + h * 0.22, y + h * 0.22], [x, y + h], [x - h * 0.22, y + h * 0.22], [x - h, y], [x - h * 0.22, y - h * 0.22]], color);
-      break;
-    case "warn":
-      draw.polygon([[x, y - h * 0.85], [x + h * 0.9, y + h * 0.75], [x - h * 0.9, y + h * 0.75]], color);
-      break;
-    case "pause":
-      draw.rect(x - h * 0.55, y - h * 0.7, h * 0.38, h * 1.4, color);
-      draw.rect(x + h * 0.17, y - h * 0.7, h * 0.38, h * 1.4, color);
-      break;
-  }
+  const m = ink(g), size = m.scale * s;
+  // draw.text's y is the line box's top: the baseline sits the font's ascent below it.
+  draw.text(CHARS[g], x - m.dx * size, y - (m.dy + m.asc) * size, { size, font: FONT, color, align: "center" });
 }
 
 /** A glyph in the layout, `size` logical pixels square. */

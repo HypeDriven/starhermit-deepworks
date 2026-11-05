@@ -15,9 +15,10 @@
 // oscillator envelopes, the sparkle's seeded pitch variants as playback
 // pitch; the procedural stand-ins the browser build played while a clip
 // decoded are not ported (a live synthesis graph makes clip loads fail on
-// the engine's web runtime), so a clip still loading is silent. Clips load
-// once the mixer runs (natively at once, in a browser after the first
-// press), one at a time.
+// the engine's web runtime), so a clip still loading is silent. Every clip
+// loads at once in onStart (the engine hands each loaded clip to the mixer,
+// natively and on the web); the rumble, the notes and the music start once
+// the mixer runs (in a browser, after the first press).
 import { context, createClip, loadClip, play as playClip, type AudioClip, type Bus, type Sound } from "starhermit:audio";
 
 /** Marks an English caption key (translated where it is shown). */
@@ -46,21 +47,15 @@ const CAPTIONS: Partial<Record<Cue, string>> = {
 const INTERFACE = new Set<Cue>(["ui_click", "ui_back"]);
 
 const clips = new Map<string, AudioClip>();
-const queue: string[] = [];
-let loading = false;
-let wantClips = false;
 let onCaption: ((key: string) => void) | null = null;
 let suspended = false;
 
-function load(name: string): void { if (!queue.includes(name) && !clips.has(name)) queue.push(name); }
-function pump(): void {
-  if (loading || !queue.length) return;
-  const name = queue.shift()!;
-  loading = true;
-  loadClip(`sfx/${name}.opus`).then((c) => { clips.set(name, c); loading = false; }, (e: unknown) => { console.warn(`sfx ${name}: ${String(e)}`); loading = false; });
+/** Loads every clip at once (onStart); a cue whose clip is still loading is silent. */
+export function loadSfx(): void {
+  for (const name of new Set(Object.values(SAMPLES))) {
+    loadClip(`sfx/${name}.opus`).then((c) => { clips.set(name, c); }, (e: unknown) => console.warn(`sfx ${name}: ${String(e)}`));
+  }
 }
-/** Asks for the clips; they load once the mixer runs (see update). */
-export function loadSfx(): void { wantClips = true; }
 /** cb(captionKey) for each captioned cue (an English key). */
 export function setOnCaption(cb: (key: string) => void): void { onCaption = cb; }
 /** A hidden window: everything holds (js/audio.js handleVisibility). */
@@ -77,7 +72,7 @@ export function play(name: Cue): void {
   if (!clip || suspended) return;
   const bus: Bus = INTERFACE.has(name) ? "interface" : "effects";
   try { playClip(clip, { bus, gain: LEVEL.effects }); }
-  catch { clips.delete(file); load(file); } // a clip the mixer lost: load it again
+  catch { /* the mixer is full this frame: skip it */ }
 }
 
 // -- rendered ambience and music -------------------------------------------------------------
@@ -138,18 +133,10 @@ function nextVariant(): number {
 /** 0..1, from the mine's extraction rate. */
 export function setIntensity(v: number): void { intensity = Math.max(0, Math.min(1, v)); }
 
-/** Each frame: the clips once the mixer runs (one at a time), then the
- * rumble and the notes rendered one each 0.3 s, then the music's steps by
- * mixer time. */
+/** Each frame once the mixer runs: the rumble and the notes rendered one
+ * each 0.3 s, then the music's steps by mixer time. */
 export function update(): void {
   if (context.state !== "running") return;
-  if (wantClips) {
-    wantClips = false;
-    for (const name of Object.values(SAMPLES)) load(name);
-    return;
-  }
-  pump();
-  if (loading || queue.length) return;
   try {
     if (context.currentTime >= nextRender) {
       if (!rumbleBed) { rumbleBed = rumbleClip(); nextRender = context.currentTime + 0.3; return; }

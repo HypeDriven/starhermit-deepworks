@@ -438,34 +438,47 @@ section('lift presentation: docking, loading, and cargo');
 }
 
 // ------------------------------------------------------ graphics looks ---
-// native/quality.ts: the browser build's js/gfx.js presets and budgets per
-// runtime quality tier, scaled within the tier by the graphics level.
+// native/quality.ts: the engine level's effects (levelSettings(), stubbed with
+// the engine's table) plus the browser build's js/gfx.js art and budgets per
+// runtime quality tier, scaled within the tier by the level's particle budget.
 section('graphics looks (native/quality.ts)');
 {
+  require('node:module').registerHooks({
+    resolve(spec, ctx, next) {
+      if (spec === 'starhermit:engine') return { url: require('node:url').pathToFileURL(require('node:path').join(__dirname, 'engine-stub.mjs')).href, shortCircuit: true };
+      return next(spec, ctx);
+    },
+  });
   const { lookFor, POOLS, CRYSTALS_PLAIN } = require('../native/quality.ts');
-  const order = ['low', 'balanced', 'high', 'ultra'];
-  const floor = { low: 0, balanced: 2, high: 4, ultra: 7 };
-  eq(lookFor('low', 0).shadows, 0, 'Low has no shadows');
-  eq(lookFor('low', 0).bloom, false, 'Low has no bloom');
-  eq(lookFor('low', 0).detailed, false, 'Low is plain');
-  eq(lookFor('low', 9).budget.crystals, CRYSTALS_PLAIN, 'plain seams cap their crystals');
-  eq(lookFor('low', 9).budget.dust, 0, 'Low particles have no dust motes');
-  eq(lookFor('balanced', 2).shadows, 1024, 'Balanced shadows 1024');
-  eq(lookFor('high', 4).ao, 'on', 'High has ambient occlusion');
-  eq(lookFor('ultra', 7).ao, 'high', 'Ultra has high ambient occlusion');
-  eq(lookFor('high', 4).antialias, 'smaa', 'High antialiases with SMAA');
-  eq(lookFor('balanced', 2).budget.crystals, 32, 'Balanced floor budget');
-  eq(lookFor('ultra', 7).budget.crystals, 80, 'Ultra floor budget fills the pool');
-  for (let i = 1; i < order.length; i++) {
-    const a = lookFor(order[i - 1], floor[order[i - 1]]).budget, b = lookFor(order[i], floor[order[i]]).budget;
-    for (const k of ['crystals', 'dust', 'burst']) ok(b[k] >= a[k], `${order[i]}.${k} grows`);
+  const { levelSettings, LEVEL_NAMES } = require('./engine-stub.mjs');
+  const at = (lv) => lookFor(levelSettings(lv));
+  const anchors = ['quantum', 'molecular', 'terrestrial', 'galactic'];
+  eq(at('quantum').shadows, 0, 'Low has no shadows');
+  eq(at('quantum').bloom, null, 'Low has no bloom');
+  eq(at('quantum').antialias, 'msaa', 'Low keeps MSAA (engine 1.36.1 "off" recolours fog)');
+  eq(at('quantum').detailed, false, 'Low is plain');
+  eq(at('atomic').budget.crystals, CRYSTALS_PLAIN, 'plain seams cap their crystals');
+  eq(at('atomic').budget.dust, 0, 'Low particles have no dust motes');
+  eq(at('molecular').shadows, 1024, 'Balanced shadows 1024');
+  eq(at('molecular').bloom, 0.5, 'Balanced bloom at half resolution');
+  eq(at('terrestrial').ao && at('terrestrial').ao.resolution, 0.5, 'High has half-resolution ambient occlusion');
+  eq(at('galactic').ao && at('galactic').ao.samples, 16, 'Ultra has full ambient occlusion, 16 samples');
+  eq(at('stellar').shadows, 4096, 'stellar takes the level\'s 4096 shadow map');
+  eq(at('terrestrial').antialias, 'smaa', 'High antialiases with SMAA');
+  eq(at('molecular').budget.crystals, 32, 'Balanced anchor budget');
+  eq(at('galactic').budget.crystals, 80, 'Ultra anchor budget fills the pool');
+  for (let i = 1; i < anchors.length; i++) {
+    const a = at(anchors[i - 1]).budget, b = at(anchors[i]).budget;
+    for (const k of ['crystals', 'dust', 'burst']) ok(b[k] >= a[k], `${anchors[i]}.${k} grows`);
   }
-  ok(lookFor('balanced', 3).budget.crystals > lookFor('balanced', 2).budget.crystals, 'counts scale up with the level');
-  for (const p of order) for (let lv = 0; lv <= 9; lv++) {
-    const b = lookFor(p, lv).budget;
-    ok(b.crystals <= POOLS.crystals && b.dust <= POOLS.dust, `${p}@${lv} within the pools`);
-    ok(lookFor(p, lv).budget.crystals >= lookFor(p, Math.max(0, lv - 1)).budget.crystals, `${p}@${lv} never shrinks with the level`);
-  }
+  ok(at('cellular').budget.crystals > at('molecular').budget.crystals, 'counts scale up with the level');
+  LEVEL_NAMES.forEach((lv, i) => {
+    const b = at(lv).budget;
+    ok(b.crystals <= POOLS.crystals && b.dust <= POOLS.dust, `${lv} within the pools`);
+    if (i && levelSettings(LEVEL_NAMES[i - 1]).quality === levelSettings(lv).quality)
+      ok(b.crystals >= at(LEVEL_NAMES[i - 1]).budget.crystals, `${lv} never shrinks with the level`);
+    ok(JSON.stringify(at(lv)) === JSON.stringify(at(lv)), `${lv} look is plain data`);
+  });
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);
