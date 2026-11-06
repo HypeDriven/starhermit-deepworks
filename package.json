@@ -10,7 +10,6 @@
     "package": "node tools/package-web.mjs",
     "css": "node tools/css.mjs",
     "plays": "node tools/gen-plays.mjs",
-    "i18n": "node tools/i18n-sync.mjs",
     "serve": "node server.js"
   },
   "devDependencies": {

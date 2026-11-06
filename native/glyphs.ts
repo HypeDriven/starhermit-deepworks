@@ -1,8 +1,8 @@
 // The browser build's text symbols: ◈ credits, ↻ income, ⚒ workers,
 // 🔒 sealed, ✦ flare, ▲ a full bin, ⏸ pause. They draw as font characters,
-// as the browser build did: a system face draws one where it has it, else the
-// engine's StarHermit Emoji, which covers all seven (🔒 in its own colours,
-// the rest text style in the given colour). Each draws centred on its
+// as the browser build did, in the engine's StarHermit Emoji on every system
+// (it covers all seven: 🔒 in its own colours, the rest text style in the
+// given colour). Each draws centred on its
 // measured ink box at (x, y), `s` window pixels tall, and is a ui.widget of
 // role "none" sized in logical pixels.
 import * as draw from "starhermit:draw";
@@ -11,14 +11,15 @@ import { fonts, OffscreenCanvas, type OffscreenCanvasRenderingContext2D } from "
 
 export type Glyph = "credits" | "income" | "workers" | "lock" | "flare" | "warn" | "pause";
 const CHARS: Record<Glyph, string> = { credits: "◈", income: "↻", workers: "⚒", lock: "🔒", flare: "✦", warn: "▲", pause: "⏸" };
-const FONT = "sans-serif";
+const REF = 100;
+const FONT = "StarHermit Emoji";
+const CANVAS_FONT = `${REF}px '${FONT}', sans-serif`;
 /** The glyph's ink box fills this share of `s` (the old drawn shapes' size). */
 const FILL = 0.9;
-const REF = 100;
 
 // Ask for the faces now (the emoji font loads only when text first needs it);
 // until they are in, a glyph's ink box is measured again each draw.
-fonts.load(`${REF}px ${FONT}`, Object.values(CHARS).join("")).catch(() => undefined);
+fonts.load(CANVAS_FONT, Object.values(CHARS).join("")).catch(() => undefined);
 
 interface Ink { scale: number; dx: number; dy: number; asc: number }
 const inks = new Map<Glyph, Ink>();
@@ -28,13 +29,13 @@ function ink(g: Glyph): Ink {
   let m = inks.get(g);
   if (m) return m;
   probe ??= new OffscreenCanvas(4, 4).getContext("2d")!;
-  probe.font = `${REF}px ${FONT}`;
+  probe.font = CANVAS_FONT;
   probe.textAlign = "center";
   probe.textBaseline = "alphabetic";
   const t = probe.measureText(CHARS[g]);
   const w = t.actualBoundingBoxLeft + t.actualBoundingBoxRight, h = t.actualBoundingBoxAscent + t.actualBoundingBoxDescent;
   m = { scale: (FILL * REF) / Math.max(1, w, h), dx: (t.actualBoundingBoxRight - t.actualBoundingBoxLeft) / 2 / REF, dy: (t.actualBoundingBoxDescent - t.actualBoundingBoxAscent) / 2 / REF, asc: t.fontBoundingBoxAscent / REF };
-  if (fonts.check(`${REF}px ${FONT}`, CHARS[g])) inks.set(g, m);
+  if (fonts.check(CANVAS_FONT, CHARS[g])) inks.set(g, m);
   return m;
 }
 

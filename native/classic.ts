@@ -1,5 +1,5 @@
 // The browser build's pure game scripts, shared unchanged with the node tests:
-// the string tables (js/locales/*.js, js/i18n.js), the deterministic rules
+// the deterministic rules
 // engine (js/rules.js: fixed-point sim, seeded flares, legal actions,
 // scoring, serialization), the content (js/content.js: themes, lessons, the
 // 40 Journey stages, challenges, practice difficulties, the self-calibrating
@@ -12,8 +12,7 @@
 import { loadClassic } from "starhermit:script";
 
 for (const f of [
-  "js/locales/en-GB.js", "js/locales/es.js", "js/locales/de.js", "js/locales/fr.js", "js/locales/pt.js", "js/locales/it.js",
-  "js/i18n.js", "js/rules.js", "js/content.js", "js/session.js",
+  "js/rules.js", "js/content.js", "js/session.js",
 ]) loadClassic(f);
 
 // -- The shapes this client reads -------------------------------------------------
@@ -131,16 +130,7 @@ interface SessionApi {
   masteryLevelFor(xp: number): { level: number; into: number; next: number };
   RUN_SAVE_KEY: string; PROFILE_KEY: string;
 }
-interface I18nApi {
-  T(key: string, vars?: Record<string, string | number> | null): string;
-  setLocale(tag: string): void;
-  readonly lang: string;
-  LOCALES: string[];
-  DICTS: Record<string, Record<string, string>>;
-}
-
-const g = globalThis as unknown as { DWRules: RulesApi; DWContent: ContentApi; DWSession: SessionApi; DWI18n: I18nApi };
+const g = globalThis as unknown as { DWRules: RulesApi; DWContent: ContentApi; DWSession: SessionApi };
 export const R = g.DWRules;
 export const C = g.DWContent;
 export const S = g.DWSession;
-export const I18n = g.DWI18n;

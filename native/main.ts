@@ -27,7 +27,7 @@ import * as ui from "starhermit:ui";
 import { onSessionEnded, requestSignIn } from "starhermit:platform";
 import { C, R, S, type Cmd, type Content, type Lesson, type LessonStep, type Run, type RulesEvent, type SavedRun, type ScoreInfo, type State } from "./classic.ts";
 import * as audio from "./audio.ts";
-import { N, T, onLocaleChange } from "./i18n.ts";
+import { N, SH, T } from "./i18n.ts";
 import * as platform from "./platform.ts";
 import { lookFor } from "./quality.ts";
 import * as render from "./render.ts";
@@ -532,8 +532,8 @@ export function wipeProfile(): void {
 export function inviteFriend(): void {
   const link = platform.inviteLink();
   if (!link) return;
-  try { clipboard.writeText(link); toast(T("Invite link copied to the clipboard.")); }
-  catch { toast(T("Could not copy — invite link: {link}", { link })); }
+  try { clipboard.writeText(link); toast(SH("inviteCopied")); }
+  catch { toast(SH("inviteLink", { link })); }
 }
 export function signIn(): void { void requestSignIn().catch(() => undefined); }
 export function describeMine(): void {
@@ -672,7 +672,6 @@ platform.onSettingsChange(() => {
 platform.onProfileMerged(() => toast(T("progress synced")));
 onPreferencesChange(() => applyMotion());
 onSessionEnded(() => toast(T("cloud sync unavailable")));
-onLocaleChange(() => undefined);
 let hidden = false;
 onSuspend(() => {
   hidden = true;

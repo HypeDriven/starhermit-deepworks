@@ -20,17 +20,16 @@
 | `native/audio.ts` | Clips per event on the runtime's buses, the rumble and the music rendered into clips, captions |
 | `native/platform.ts` | The profile as the engine save (+ `localStorage` shim, conflict merge, migration of the browser build's cloud save and settings), the game's own options, player, invite link, platform clock, boards and score posting |
 | `native/style.ts`, `assets/ui-style.json`, `tools/ui-style.css` | The style sheet (class-based rewrite of the old CSS, converted with `starhermit css`), the theme, palette and high-contrast token sets |
-| `native/i18n.ts`, `native/classic.ts`, `native/glyphs.ts` | Interface language → `DWI18n`; the classic scripts loaded with `loadClassic` and their types; the symbols (◈ ↻ ⚒ 🔒 ✦ ▲ ⏸) drawn as font text (a system face that has one, else StarHermit Emoji; 🔒 in colour) |
+| `native/i18n.ts`, `native/classic.ts`, `native/glyphs.ts` | The engine's string tables; the classic scripts loaded with `loadClassic` and their types; the symbols (◈ ↻ ⚒ 🔒 ✦ ▲ ⏸) drawn as font text (a system face that has one, else StarHermit Emoji; 🔒 in colour) |
 | `js/rules.js` | Pure deterministic rules engine (`DWRules`): ruleset, legality, fixed-point sim, scoring, serialization, seeded RNG |
 | `js/content.js` | Versioned content (`DWContent`): 5 themes, 5 lessons, 40 journey stages, 6 challenges, 4 practice difficulties, daily generator, validators, greedy reference player |
 | `js/session.js` | Run lifecycle (`DWSession`): command dispatch with idempotent ids, replay log, undo, autosave, away simulation, profile, stars/mastery |
 | `js/lift.js` | The lift's cosmetic itinerary (`DWLift`, pure): deepest-first trips docking at each floor |
-| `js/i18n.js`, `js/locales/*.js` | `DWI18n`: `T(US-English text, vars)` and the per-language dictionaries |
 | `score-script.js` | StarHermit platform script (`server=`): range-checks a finished run's score and posts it to the `high-score` leaderboard |
 | `server.js` | Local dev server (not packaged): static files + `/api/v1` with its own replay-validated daily board |
 | `assets/` | Key art and illustrations (`key-art.webp`, `shift-complete.webp`, `shift-over.webp`, `crew-at-night.webp`), `ui-style.json` |
 | `sfx/` | 21 Opus clips, `manifest.txt` (canonical), `manifest.json`, `manifest.md` |
-| `tests/`, `tools/` | Unit, save, i18n and native tests; css, package, play-script, i18n-sync and browser-play tools (not packaged) |
+| `tests/`, `tools/` | Unit, save, i18n and native tests; css, package, play-script and browser-play tools (not packaged) |
 | `coverart.png`, `icon.png`, `cover.jpg`, `LICENSE.md` | Platform packaging (PolyForm Noncommercial 1.0.0) |
 
 ## 2. Vision and design pillars
@@ -214,7 +213,7 @@ This table is the source of `sfx/manifest.txt`; `sfx/manifest.json` carries the 
 
 Nine locales ship: **en-US, en-GB, es-419, es-ES, de-DE, fr-FR, fr-CA, pt-BR, it-IT**, for every player-facing string — title, modes, setups, journey, boards, help, profile, settings, HUD and rails, bottleneck hints, layer labels and the fallback board, announcements and sound captions, toasts, results, the screen-reader mine description, and the stage/lesson/challenge/difficulty/theme/achievement names and texts. "Deepworks" stays untranslated; numbers keep the game's own compact format (`formatCoins`).
 
-- **Strings.** Code calls `T('US-English text', { vars })` (`native/i18n.ts` over `js/i18n.js`, global `DWI18n`); `js/locales/*.js` map that text per language (en-GB lists only its spellings; es-ES and fr-CA only their differences from es-419 and fr-FR). Content tables keep English source text and are translated at display time (lesson prompts substitute the player's real key bindings). `DWRules.describeState` takes the UI's translator. `npm run i18n` (`tools/i18n-sync.mjs`) drops rows no source uses and fills new keys from sibling games' dictionaries.
+- **Strings.** Code calls `T('US-English text', { vars })` (`native/i18n.ts` over the engine's string tables); `assets/strings.json` maps that text per language (en-GB lists only its spellings); shared account lines are the engine's `starhermit.*`. Content tables keep English source text and are translated at display time (lesson prompts substitute the player's real key bindings). `DWRules.describeState` takes the UI's translator. `npm run i18n` (`tools/i18n-sync.mjs`) drops rows no source uses and fills new keys from sibling games' dictionaries.
 - **Language** is the runtime's interface language (`preferences().language`: the player's choice in Options › Language, else the account's preferred language, else the device's), mapped to the nearest shipped locale (en-GB, es-ES and fr-CA by region); a change re-renders every screen in place (the UI is rebuilt each frame). The game's own Language selector (`sh-language.js`) is gone; a browser-build account choice (`ui.language`) is removed with the other legacy settings.
 - **Expansion.** Labels too long for their width become wrapping paragraphs, button rows wrap, panels and rails scroll.
 
@@ -243,7 +242,7 @@ All platform I/O is the runtime's modules (`native/platform.ts`):
 
 ## 13. Technical architecture
 
-- **Modules:** the pure scripts (`js/rules.js`, `js/content.js`, `js/session.js`, `js/lift.js`, `js/i18n.js`, `js/locales/*.js`) are classic UMD scripts loaded with `loadClassic` (unchanged for the node tests and `server.js`); `native/*.ts` is the client. `js/session.js` keeps its documents in `localStorage`, which `native/platform.ts` shims onto the engine save and device storage.
+- **Modules:** the pure scripts (`js/rules.js`, `js/content.js`, `js/session.js`, `js/lift.js`) are classic UMD scripts loaded with `loadClassic` (unchanged for the node tests and `server.js`); `native/*.ts` is the client. `js/session.js` keeps its documents in `localStorage`, which `native/platform.ts` shims onto the engine save and device storage.
 - **Determinism:** fixed 100 ms rule slices, integer state, single RNG stream in state, canonical hashing; content is versioned (`CONTENT_VERSION = 1`, rules `VERSION = 1` with a migration chain). Replay envelope: `{schema:1, contentVersion, contentId, mode, seed, startedAt, log, hashes, result}`.
 - **Time:** the runtime's fixed steps (`setFixedRate(60)`): an active shift advances by 1000/60 ms a step (whole milliseconds, the remainder carried) through `DWSession.tick`; the 1.8 s countdown, the bottleneck check (every 200 ms), the lesson earn check (500 ms) and the practice autosave + playtime (10 s) count steps, so pauses, a hidden window and slow frames never cost time and play scripts replay exactly. The away simulation on resuming a saved shift uses the wall clock (min(elapsed, 8 h), summary dialog when > 30 s). Decorative motion follows frame time.
 - **Frame:** `onRender` builds the UI (`screens.ts`), then decides the queued presses on the mine against the HUD's rectangles, then hands the run's (or the attract) state to `render.setSnapshot`.

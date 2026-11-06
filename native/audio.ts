@@ -11,15 +11,15 @@
 // the ambience → "effects", the menu click and back → "interface", the
 // unused voice bus is gone; the old default bus levels (music 50 %, effects
 // 80 %, ambience 40 %) are folded into each sound's gain. The rumble and the
-// music's notes are rendered once into clips (createClip) with the old
-// oscillator envelopes, the sparkle's seeded pitch variants as playback
-// pitch; the procedural stand-ins the browser build played while a clip
-// decoded are not ported (a live synthesis graph makes clip loads fail on
-// the engine's web runtime), so a clip still loading is silent. Every clip
+// music's notes are rendered once into clips by the engine
+// (OfflineAudioContext, one context a stem) with the old oscillator envelopes,
+// the sparkle's seeded pitch variants as playback pitch; the procedural
+// stand-ins the browser build played while a clip decoded are not ported, so
+// a clip still loading is silent. Every clip
 // loads at once in onStart (the engine hands each loaded clip to the mixer,
 // natively and on the web); the rumble, the notes and the music start once
 // the mixer runs (in a browser, after the first press).
-import { context, createClip, loadClip, play as playClip, type AudioClip, type Bus, type Sound } from "starhermit:audio";
+import { context, createClip, loadClip, OfflineAudioContext, play as playClip, type AudioClip, type Bus, type Sound } from "starhermit:audio";
 
 /** Marks an English caption key (translated where it is shown). */
 const N = (s: string): string => s;
@@ -55,6 +55,7 @@ export function loadSfx(): void {
   for (const name of new Set(Object.values(SAMPLES))) {
     loadClip(`sfx/${name}.opus`).then((c) => { clips.set(name, c); }, (e: unknown) => console.warn(`sfx ${name}: ${String(e)}`));
   }
+  renderBeds();
 }
 /** cb(captionKey) for each captioned cue (an English key). */
 export function setOnCaption(cb: (key: string) => void): void { onCaption = cb; }
@@ -78,39 +79,46 @@ export function play(name: Cue): void {
 // -- rendered ambience and music -------------------------------------------------------------
 const RATE = 22050;
 /** js/audio.js tone(): attack to `gain` in 8 ms, exponential decay to 0.0001 by `dur`. */
-function toneClip(freq: number, dur: number, type: "sine" | "triangle"): AudioClip {
-  const n = Math.round((dur + 0.02) * RATE);
-  const out = new Float32Array(n);
-  for (let i = 0; i < n; i++) {
-    const t = i / RATE;
-    if (t >= dur) break;
-    const ph = (freq * t) % 1;
-    const w = type === "sine" ? Math.sin(2 * Math.PI * ph) : 1 - 4 * Math.abs(ph - 0.5);
-    const env = t < 0.008 ? 0.0001 * Math.pow(1 / 0.0001, t / 0.008) : Math.pow(0.0001, (t - 0.008) / (dur - 0.008));
-    out[i] = w * env;
-  }
-  return createClip([out], RATE);
+async function renderTone(freq: number, dur: number, type: "sine" | "triangle"): Promise<AudioClip> {
+  const off = new OfflineAudioContext(1, Math.round((dur + 0.02) * RATE), RATE);
+  const osc = off.createOscillator();
+  osc.type = type;
+  osc.frequency.value = freq;
+  const env = off.createGain();
+  env.gain.setValueAtTime(0.0001, 0);
+  env.gain.exponentialRampToValueAtTime(1, 0.008);
+  env.gain.exponentialRampToValueAtTime(0.0001, dur);
+  env.gain.setValueAtTime(0, dur);
+  osc.connect(env).connect(off.destination);
+  osc.start();
+  return createClip(await off.startRendering());
 }
-/** js/audio.js startAmbience(): brown-ish noise, low-pass at 220 Hz ± 60 Hz breathing at 0.07 Hz (one period, looped). */
-function rumbleClip(): AudioClip {
+/** Level of the engine's brown noise to the old rumble's, by measured rms. */
+const RUMBLE_MAKEUP = 0.871;
+/** js/audio.js startAmbience(): brown noise, low-pass at 220 Hz ± 60 Hz breathing at 0.07 Hz (one period, looped). */
+async function renderRumble(): Promise<AudioClip> {
   const seconds = 1 / 0.07;
-  const n = Math.round(seconds * RATE);
-  const out = new Float32Array(n);
-  let last = 0, y = 0, seed = 0x5eed;
-  const rnd = (): number => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
-  for (let i = 0; i < n; i++) {
-    const w = rnd() * 2 - 1;
-    last = (last + 0.02 * w) / 1.02;
-    const x = last * 3.5;
-    const fc = 220 + 60 * Math.sin(2 * Math.PI * 0.07 * (i / RATE));
-    const a = 1 - Math.exp(-2 * Math.PI * fc / RATE);
-    y += a * (x - y);
-    out[i] = y;
-  }
+  const off = new OfflineAudioContext(1, Math.round(seconds * RATE), RATE);
+  const noise = off.createNoise({ color: "brown", seed: 0x5eed, seconds });
+  const lp = off.createBiquadFilter();
+  lp.type = "lowpass";
+  lp.frequency.value = 220;
+  const lfo = off.createOscillator();
+  lfo.frequency.value = 0.07;
+  const depth = off.createGain();
+  depth.gain.value = 60;
+  lfo.connect(depth);
+  depth.connect(lp.frequency);
   // Fade the loop's seam over 50 ms.
-  const f = Math.round(0.05 * RATE);
-  for (let i = 0; i < f; i++) { const k = i / f; out[i]! *= k; out[n - 1 - i]! *= k; }
-  return createClip([out], RATE);
+  const seam = off.createGain();
+  seam.gain.setValueAtTime(0, 0);
+  seam.gain.linearRampToValueAtTime(RUMBLE_MAKEUP, 0.05);
+  seam.gain.setValueAtTime(RUMBLE_MAKEUP, seconds - 0.05);
+  seam.gain.linearRampToValueAtTime(0, seconds);
+  noise.connect(lp).connect(seam).connect(off.destination);
+  noise.start();
+  lfo.start();
+  return createClip(await off.startRendering());
 }
 const MUSIC_SCALE = [0, 3, 5, 7, 10]; // minor pentatonic
 const BASE = 110; // A2
@@ -118,11 +126,23 @@ const RUMBLE_GAIN = 0.5 * LEVEL.ambience;
 const notes = new Map<string, AudioClip>();
 let rumbleBed: AudioClip | null = null;
 let rumble: Sound | null = null;
-let nextRender = 0;
 let musicStep = 0;
 let nextStep = 0;
 let intensity = 0;
 let variantSeed = 1;
+
+/** Renders the rumble and the notes once (onStart); the music waits on each clip. */
+function renderBeds(): void {
+  renderRumble().then((c) => { rumbleBed = c; }, (e: unknown) => console.warn(`rumble: ${String(e)}`));
+  for (const deg of MUSIC_SCALE) {
+    for (const [k, freq, dur, type] of [
+      [`b${deg}`, BASE * Math.pow(2, deg / 12), 1.4, "sine"],
+      [`s${deg}`, BASE * 2 * Math.pow(2, deg / 12), 0.5, "triangle"],
+    ] as [string, number, number, "sine" | "triangle"][]) {
+      renderTone(freq, dur, type).then((c) => { notes.set(k, c); }, (e: unknown) => console.warn(`music: ${String(e)}`));
+    }
+  }
+}
 
 /** The run's seed for the sparkle's pitch variants (js/audio.js setVariantSeed). */
 export function setVariantSeed(seed: number): void { variantSeed = seed >>> 0; }
@@ -133,22 +153,10 @@ function nextVariant(): number {
 /** 0..1, from the mine's extraction rate. */
 export function setIntensity(v: number): void { intensity = Math.max(0, Math.min(1, v)); }
 
-/** Each frame once the mixer runs: the rumble and the notes rendered one
- * each 0.3 s, then the music's steps by mixer time. */
+/** Each frame once the mixer runs: the rumble, then the music's steps by mixer time. */
 export function update(): void {
   if (context.state !== "running") return;
   try {
-    if (context.currentTime >= nextRender) {
-      if (!rumbleBed) { rumbleBed = rumbleClip(); nextRender = context.currentTime + 0.3; return; }
-      for (const deg of MUSIC_SCALE) {
-        for (const [k, freq, dur, type] of [
-          [`b${deg}`, BASE * Math.pow(2, deg / 12), 1.4, "sine"],
-          [`s${deg}`, BASE * 2 * Math.pow(2, deg / 12), 0.5, "triangle"],
-        ] as [string, number, number, "sine" | "triangle"][]) {
-          if (!notes.has(k)) { notes.set(k, toneClip(freq, dur, type)); nextRender = context.currentTime + 0.3; return; }
-        }
-      }
-    }
     if (rumbleBed && !rumble) rumble = playClip(rumbleBed, { bus: "effects", gain: suspended ? 0 : RUMBLE_GAIN, loop: true });
   } catch (e) { console.warn(`audio: ${String(e)}`); return; }
   if (suspended) return;

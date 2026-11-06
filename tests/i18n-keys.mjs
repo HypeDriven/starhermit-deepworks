@@ -13,7 +13,7 @@ export function sourceKeys() {
   const call = /(?<![\w.$])(?:T|N)\(\s*(?:'((?:[^'\\\n]|\\.)*)'|"((?:[^"\\\n]|\\.)*)")/g;
   const ternary = /(?<![\w.$])T\([^'"\n()]*?\?\s*'((?:[^'\\\n]|\\.)*)'\s*:\s*'((?:[^'\\\n]|\\.)*)'/g;
   const files = [
-    ...readdirSync(join(ROOT, 'js')).filter((f) => f.endsWith('.js') && f !== 'i18n.js').map((f) => join(ROOT, 'js', f)),
+    ...readdirSync(join(ROOT, 'js')).filter((f) => f.endsWith('.js')).map((f) => join(ROOT, 'js', f)),
     ...readdirSync(join(ROOT, 'native')).filter((f) => f.endsWith('.ts')).map((f) => join(ROOT, 'native', f)),
   ];
   for (const f of files) {

@@ -21,7 +21,7 @@ import { primaryPointer, requestRebind } from "starhermit:input";
 import * as draw from "starhermit:draw";
 import * as ui from "starhermit:ui";
 import { C, R, S, type Content, type Legal, type State } from "./classic.ts";
-import { N, T } from "./i18n.ts";
+import { N, SH, T } from "./i18n.ts";
 import { glyph, type Glyph } from "./glyphs.ts";
 import * as platform from "./platform.ts";
 import * as render from "./render.ts";
@@ -37,14 +37,13 @@ import { tok } from "./style.ts";
 // ------------------------------------------------------------------ layout
 interface Layout { lw: number; lh: number; sc: number; ox: number; oy: number; wide: boolean; phone: boolean; shortLand: boolean }
 function layoutNow(): Layout {
-  const f = frame();
-  const sc = ui.preferences().scale;
-  const sa = f.safeArea;
-  const lw = Math.max(1, (f.width - sa.left - sa.right) / sc), lh = Math.max(1, (f.height - sa.top - sa.bottom) / sc);
+  const v = ui.viewport!();
+  const sc = v.scale;
+  const lw = Math.max(1, v.width), lh = Math.max(1, v.height);
   const shortLand = lw > lh && lh <= 500;
   // (max-width: 640px), (pointer: coarse) and (max-width: 900px); a short landscape window is a phone held sideways.
   const phone = lw <= 640 || shortLand || (primaryPointer() === "coarse" && lw <= 900);
-  return { lw, lh, sc, ox: sa.left / sc, oy: sa.top / sc, wide: lw >= 1024, phone, shortLand };
+  return { lw, lh, sc, ox: v.x, oy: v.y, wide: lw >= 1024, phone, shortLand };
 }
 const lastSize = new Map<string, { w: number; h: number }>();
 const pr = (): ui.UiPreferences => ui.preferences();
@@ -193,8 +192,8 @@ function titleScreen(L: Layout): void {
       { id: "btn-settings", text: T("Settings"), style: ["btn", "btn-link"], act: openSettings },
     ], w, "center", 16);
     const plat: Btn[] = [];
-    if (!platform.signedIn()) plat.push({ id: "btn-signin", text: T("Sign in with StarHermit"), style: ["btn", "btn-ghost"], act: signIn });
-    if (platform.inviteLink()) plat.push({ id: "btn-invite", text: T("Invite a friend"), style: ["btn", "btn-ghost"], act: inviteFriend });
+    if (!platform.signedIn()) plat.push({ id: "btn-signin", text: SH("signIn"), style: ["btn", "btn-ghost"], act: signIn });
+    if (platform.inviteLink()) plat.push({ id: "btn-invite", text: SH("invite"), style: ["btn", "btn-ghost"], act: inviteFriend });
     if (plat.length) flow("title-platform", plat, w, "center", 16);
     const st = platform.syncState();
     const ident = platform.signedIn()
@@ -575,8 +574,8 @@ function resultsScreen(L: Layout): void {
     if (d.achievements.length) para(T("Achievement unlocked: {name}", { name: d.achievements.map((n) => T(n)).join(", ") }), w, "body", "results-ach");
     if (d.leaderboard) {
       const r = d.leaderboard.result;
-      para(!r ? T("Posting score to the leaderboard…") : !r.posted ? T("Score not posted to the leaderboard.")
-        : r.rank ? T("Leaderboard rank: #{rank}", { rank: r.rank }) : T("Score posted to the leaderboard."), w, "dim", "results-lb");
+      para(!r ? SH("leaderboardPosting") : !r.posted ? SH("leaderboardNotPosted")
+        : r.rank ? SH("leaderboardRank", { rank: r.rank }) : SH("leaderboardPosted"), w, "dim", "results-lb");
     }
     const btns: Btn[] = [];
     if (d.nextContent) btns.push({ id: "", text: T("Next: {name}", { name: T(d.nextContent.name) }), style: ["btn", "btn-primary"], act: () => startRun(d.nextContent!, d.mode) });
