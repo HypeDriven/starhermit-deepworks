@@ -1,3 +1,4 @@
+import { withLanguageRender as __l10nRender } from "./l10n/menu.ts";
 // Deepworks on the StarHermit engine: the entry module (starhermit.txt
 // engine.entry), played natively by the StarHermit client and in browsers by
 // the engine's web runtime. The rules (js/rules.js), content (js/content.js)
@@ -773,7 +774,7 @@ onUpdate((dt) => {
   if (achievementCueAt > 0 && t >= achievementCueAt) { achievementCueAt = -1; sfx("achievement"); }
   holdRepeat();
 });
-onRender(() => {
+onRender(__l10nRender(() => {
   blockers.length = 0;
   holdRects.length = 0;
   drawScreens();
@@ -784,4 +785,8 @@ onRender(() => {
   render.setPaused(!!app.run && app.paused);
   render.setFlareActive(app.run && app.run.state.flare.active ? app.run.state.flare.active.layer : null);
   render.setSnapshot(st, runFrameDt);
-});
+}));
+
+// localization-runtime:menu
+import { installLanguageMenu as __installLanguageMenu } from "./l10n/menu.ts";
+__installLanguageMenu(false);

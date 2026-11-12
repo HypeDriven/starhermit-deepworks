@@ -1,3 +1,6 @@
+import { localizedStyle as __l10nStyle } from "./l10n/font.ts";
+// localization-runtime:attached
+import { openLocalizedOptions as __l10nOptions } from "./l10n/menu.ts";
 // The browser build's DOM shell (index.html + js/ui.js + css/styles.css) as
 // starhermit:ui, built every frame over the mine: the title (key art, the
 // DEEPWORKS logo, the saved-shift banner, Play, Daily Vein with its
@@ -16,7 +19,25 @@
 // open from toggles), phone (≤ 640 px, or a touch screen ≤ 900 px: the tray
 // and a two-row top bar), short landscape (≤ 500 px tall: no art, compact
 // rails and a docked lesson card); the left-handed setting swaps the rails.
-import { frame, openMenu } from "starhermit:engine";
+// The browser build's DOM shell (index.html + js/ui.js + css/styles.css) as
+// starhermit:ui, built every frame over the mine: the title (key art, the
+// DEEPWORKS logo, the saved-shift banner, Play, Daily Vein with its
+// countdown, Journey with its progress, Profile, How to play, Leaderboards,
+// Settings, sign-in / invite, the identity line), the mode cards, the mode
+// setups (lesson, practice and challenge lists; the rules sheet with Start
+// shift), the Journey grid, the boards, Help, Profile, Settings (the pause
+// menu with Resume, Restart, End & bank, Leave) and the results; the play
+// HUD (the top bar with the objective and its meter, credits, income,
+// workers and the clock with Pause; the Shift Report and the Foreman's Panel
+// rails, drawers on narrower windows; the phone's thumb-zone tray; the
+// lesson card; the countdown; the layer labels over the mine), the confirm
+// and "while you were away" dialogs, the toasts and the captions. The
+// browser's media queries are layouts picked by the window's logical size:
+// wide (≥ 1024 px: rails beside the mine), drawers (narrower: the rails
+// open from toggles), phone (≤ 640 px, or a touch screen ≤ 900 px: the tray
+// and a two-row top bar), short landscape (≤ 500 px tall: no art, compact
+// rails and a docked lesson card); the left-handed setting swaps the rails.
+import { frame } from "starhermit:engine";
 import { primaryPointer, requestRebind } from "starhermit:input";
 import * as draw from "starhermit:draw";
 import * as ui from "starhermit:ui";
@@ -63,9 +84,9 @@ function button(b: Btn, width: number | null = null): void {
   const s: ui.Style = width != null ? { width } : {};
   if (width != null && buttonWidth(b.text, style) > width) {
     const inner = Math.max(20, width - 24);
-    opts.content = () => { ui.style({ text: { align: "center" } }).paragraph(b.text, inner); };
+    opts.content = () => { ui.style(__l10nStyle({ text: { align: "center" } })).paragraph(b.text, inner); };
   }
-  if (ui.style(...style, s).id(b.id).button(b.text, opts)) { sfx(b.back ? "ui_back" : "ui_click"); b.act(); }
+  if (ui.style(...__l10nStyle(style), __l10nStyle(s)).id(b.id).button(b.text, opts)) { sfx(b.back ? "ui_back" : "ui_click"); b.act(); }
 }
 /** Buttons at their own widths in rows that wrap at `width` (CSS flex-wrap). */
 function flow(label: string, list: Btn[], width: number, align: "start" | "center" | "end" = "start", gap = 6): void {
@@ -78,7 +99,7 @@ function para(text: string, width: number, cls = "body", id?: string, center = f
   if (!text) return;
   const styles: (string | ui.Style)[] = [cls];
   if (center) styles.push({ text: { align: "center" } });
-  let u = ui.style(...styles);
+  let u = ui.style(...__l10nStyle(styles));
   if (id) u = u.id(id);
   if (ui.measureText(text, { style: styles }).width / pr().scale <= width) u.label(text);
   else u.paragraph(text, width);
@@ -88,7 +109,7 @@ function kv(id: string, k: string, v: string, w: number): void {
   ui.row(id, () => {
     para(k, Math.max(40, w - textWidth(v, "kv-v") - 10), "kv-k");
     ui.spacer();
-    ui.style("kv-v").label(v);
+    ui.style(__l10nStyle("kv-v")).label(v);
   }, { style: "kv", width: w, align: "center", spacing: 0 });
 }
 function starsText(n: number): string { return "★".repeat(n) + "☆".repeat(Math.max(0, 3 - n)); }
@@ -162,8 +183,8 @@ function titleScreen(L: Layout): void {
     // Short windows keep the menu in view: the key art shrinks first.
     if (!L.shortLand) art("title-art", "assets/key-art.webp", w, Math.min(190, w * 0.46, Math.max(80, L.lh - 470)));
     ui.row("logo", () => {
-      ui.style("logo-a").label("DEEP");
-      ui.style("logo-b").label("WORKS");
+      ui.style(__l10nStyle("logo-a")).label("DEEP");
+      ui.style(__l10nStyle("logo-b")).label("WORKS");
     }, { spacing: 0, align: "center" });
     para(T("Assign. Upgrade. Optimize. The seams are glowing."), w, "tagline", "tagline", true);
     const saved = app.savedRun;
@@ -204,8 +225,8 @@ function titleScreen(L: Layout): void {
 }
 /** A button with a subtle second part (Daily Vein's countdown, Journey's progress). */
 function sub(id: string, text: string, extra: string, w: number, act: () => void): void {
-  if (ui.style("btn", { width: w }).id(id).button(text + (extra ? " " + extra : ""), {
-    content: () => ui.row(`${id}-face`, () => { ui.style("body").label(text); if (extra) ui.style("dim").label(extra); }, { spacing: 8, align: "center" }),
+  if (ui.style(__l10nStyle("btn"), __l10nStyle({ width: w })).id(id).button(text + (extra ? " " + extra : ""), {
+    content: () => ui.row(`${id}-face`, () => { ui.style(__l10nStyle("body")).label(text); if (extra) ui.style(__l10nStyle("dim")).label(extra); }, { spacing: 8, align: "center" }),
   })) { sfx("ui_click"); act(); }
 }
 
@@ -222,13 +243,13 @@ function cardGrid(id: string, cards: Card[], w: number, minW = 220): void {
       ui.row(`${id}-r${i}`, () => {
         for (const c of cards.slice(i, i + cols)) {
           const label = [c.title, ...c.lines.map((l) => l.text)].join(". ");
-          if (ui.style("card", { width: cw }).id(c.id).button(label, {
+          if (ui.style(__l10nStyle("card"), __l10nStyle({ width: cw })).id(c.id).button(label, {
             disabled: !!c.disabled,
             content: () => ui.column(`${c.id}-face`, () => {
               para(c.title, inner, "card-h");
               for (const l of c.lines) para(l.text, inner, l.cls);
               if (c.badges) ui.row(`${c.id}-badges`, () => {
-                for (const [bi, b] of c.badges!.entries()) ui.row(`${c.id}-b${bi}`, () => ui.style(b.ranked ? "badge-ranked-t" : "badge-t").label(b.text), { style: b.ranked ? "badge-ranked" : "badge" });
+                for (const [bi, b] of c.badges!.entries()) ui.row(`${c.id}-b${bi}`, () => ui.style(__l10nStyle(b.ranked ? "badge-ranked-t" : "badge-t")).label(b.text), { style: b.ranked ? "badge-ranked" : "badge" });
               }, { spacing: 4 });
             }, { spacing: 4, align: "start", width: inner }),
           })) { sfx("ui_click"); c.act(); }
@@ -292,7 +313,7 @@ function setupShell(w: number, title: string, entry: Content, mode: SetupMode, e
     kv("kv-mech", T("Mechanics"), mechanicsText(rs.mechanics), w);
     kv("kv-seed", T("Seed"), "#" + (entry.seed >>> 0).toString(36), w);
     const ranked = mode === "daily";
-    ui.row("setup-badge", () => ui.style(ranked ? "badge-ranked-t" : "badge-t").label(ranked ? T("ranked — same seed for everyone") : T("casual — unranked")), { style: ranked ? "badge-ranked" : "badge" });
+    ui.row("setup-badge", () => ui.style(__l10nStyle(ranked ? "badge-ranked-t" : "badge-t")).label(ranked ? T("ranked — same seed for everyone") : T("casual — unranked")), { style: ranked ? "badge-ranked" : "badge" });
   }, { spacing: 2, width: w });
   para(extra, w, extraCls, "setup-extra");
   flow("setup-row", [
@@ -372,11 +393,11 @@ function journeyScreen(L: Layout): void {
             const label = rec ? T("Stage {n} {name}, completed, {stars} stars", { n: s.n!, name: T(s.name), stars: rec.stars })
               : locked ? T("Stage {n} {name}, locked", { n: s.n!, name: T(s.name) }) : T("Stage {n} {name}", { n: s.n!, name: T(s.name) });
             const cls = ["jnode", rec ? "jnode-done" : "", j === firstIncomplete ? "jnode-current" : ""].filter(Boolean);
-            if (ui.style(...cls, { width: cw, height: cw }).id(`jnode-${s.n}`).tooltip(T(s.name) + (locked ? " " + T("(complete the previous stage)") : "")).button(label, {
+            if (ui.style(...__l10nStyle(cls), __l10nStyle({ width: cw, height: cw })).id(`jnode-${s.n}`).tooltip(T(s.name) + (locked ? " " + T("(complete the previous stage)") : "")).button(label, {
               disabled: locked,
               content: () => ui.column(`jn-${s.n}`, () => {
-                ui.style("jnode-n").label(String(s.n));
-                if (rec) ui.style("jnode-stars").label(starsText(rec.stars));
+                ui.style(__l10nStyle("jnode-n")).label(String(s.n));
+                if (rec) ui.style(__l10nStyle("jnode-stars")).label(starsText(rec.stars));
               }, { spacing: 0, align: "center" }),
             })) { sfx("ui_click"); openSetup("journey-go", s); }
           }
@@ -448,7 +469,7 @@ function profileScreen(L: Layout): void {
   page("profile", L, 640, (w) => {
     heading(T("Profile"), w);
     ui.row("name-row", () => {
-      if (platform.signedIn()) ui.style("body").label(nameText(platform.displayName()));
+      if (platform.signedIn()) ui.style(__l10nStyle("body")).label(nameText(platform.displayName()));
       else {
         app.nameDraft = ui.textField("display-name", app.nameDraft, { maxChars: 24, width: Math.min(280, w - 100), placeholder: T("Display name") });
         button({ id: "btn-name-save", text: T("Save"), style: ["btn", "btn-small"], act: () => setDisplayName(app.nameDraft) });
@@ -485,7 +506,7 @@ function group(id: string, title: string, w: number, build: () => void): void {
 function toggle(key: "captions" | "cameraSway" | "holdRepeat" | "leftHanded" | "haptics" | "timingAssist", label: string, w: number): void {
   ui.row(`row-${key}`, () => {
     const cur = settings[key];
-    const next = ui.id(`set-${key}`).style({ width: w }).checkbox(label, cur);
+    const next = ui.id(`set-${key}`).style(__l10nStyle({ width: w })).checkbox(label, cur);
     if (next !== cur) { sfx("ui_click"); platform.setSetting(key, next); }
   }, { style: "set-row", width: w });
 }
@@ -494,7 +515,7 @@ function selectRow(id: string, label: string, w: number, options: [string, strin
     para(label, Math.max(80, w * 0.45), "body");
     ui.spacer();
     const idx = Math.max(0, options.findIndex((o) => o[0] === cur));
-    const next = ui.style({ width: Math.min(240, w * 0.5) }).id(`set-${id}`).select(label, idx, options.map((o) => o[1]));
+    const next = ui.style(__l10nStyle({ width: Math.min(240, w * 0.5) })).id(`set-${id}`).select(label, idx, options.map((o) => o[1]));
     if (next !== idx) set(options[next]![0]);
   }, { style: "set-row", width: w, align: "center", spacing: 10 });
 }
@@ -513,7 +534,7 @@ function settingsScreen(L: Layout): void {
     }
     group("g-audio", T("Audio"), w, () => {
       para(T("Music, effects and voice volumes and mute are in the StarHermit Options."), w, "dim");
-      flow("audio-opts", [{ id: "btn-options-audio", text: T("Open Options"), style: ["btn", "btn-small"], act: () => openMenu() }], w);
+      flow("audio-opts", [{ id: "btn-options-audio", text: T("Open Options"), style: ["btn", "btn-small"], act: () => __l10nOptions() }], w);
       toggle("captions", T("Text captions for sounds"), w);
     });
     group("g-gfx", T("Graphics"), w, () => {
@@ -558,8 +579,8 @@ function resultsScreen(L: Layout): void {
     if (!L.shortLand) art("result-art", won ? "assets/shift-complete.webp" : "assets/shift-over.webp", w, Math.min(150, w * 0.36));
     heading(resultsHeadline(d), w, won ? "result-win" : "result-lose", "results-headline");
     para(contentName(d.content), w, "dim");
-    if (d.stars) ui.style("stars-big").id("results-stars").label(starsText(d.stars));
-    ui.style("score-big").id("results-score").label(R.formatCoins(d.score.total));
+    if (d.stars) ui.style(__l10nStyle("stars-big")).id("results-stars").label(starsText(d.stars));
+    ui.style(__l10nStyle("score-big")).id("results-score").label(R.formatCoins(d.score.total));
     para(T("final score"), w, "dim");
     heading(T("Score breakdown"), w, "h3");
     const comp = d.score.components;
@@ -616,17 +637,17 @@ function actionButton(id: string, label: string, cost: number | null, legal: Leg
     content: () => {
       // The face dims with the button (.btn:disabled { opacity: 0.45 }).
       const dim = legal.enabled ? {} : { opacity: 0.45 };
-      const cost = (): void => { if (costText) ui.style(cant ? "cost-cant" : "cost", dim).label(costText); };
-      if (both <= inner) ui.row(`${id}-line`, () => { ui.style("body", dim).label(label); cost(); }, { spacing: 8, align: "center" });
+      const cost = (): void => { if (costText) ui.style(__l10nStyle(cant ? "cost-cant" : "cost"), __l10nStyle(dim)).label(costText); };
+      if (both <= inner) ui.row(`${id}-line`, () => { ui.style(__l10nStyle("body"), __l10nStyle(dim)).label(label); cost(); }, { spacing: 8, align: "center" });
       else {
         // Too narrow for one line: the cost goes under the label, which wraps only when it alone is too wide.
-        if (textWidth(label, "body") <= inner) ui.style("body", dim).label(label);
-        else ui.style("body", dim, { text: { align: "center" } }).paragraph(label, inner - 4);
+        if (textWidth(label, "body") <= inner) ui.style(__l10nStyle("body"), __l10nStyle(dim)).label(label);
+        else ui.style(__l10nStyle("body"), __l10nStyle(dim), __l10nStyle({ text: { align: "center" } })).paragraph(label, inner - 4);
         cost();
       }
     },
   };
-  let u = ui.style("btn", { width, ...(compact ? { padding: { start: 6, end: 6, top: 6, bottom: 6 } } : {}) }).id(id);
+  let u = ui.style(__l10nStyle("btn"), __l10nStyle({ width, ...(compact ? { padding: { start: 6, end: 6, top: 6, bottom: 6 } } : {}) })).id(id);
   if (!legal.enabled) u = u.tooltip(reasonText(legal.reason));
   let pressed = false;
   const r = ui.row(`${id}-wrap`, () => { pressed = u.button(label + (costText ? " " + costText : ""), opts); }, { spacing: 0 });
@@ -728,7 +749,7 @@ function tray(st: State, L: Layout): number {
   return r.height / L.sc;
 }
 function resChip(g: Glyph, text: string, id: string, title: string): void {
-  ui.tooltip(title).row(id, () => { glyph(g, 15, tok("accent")); ui.style("res").id(`${id}-v`).label(text); }, { spacing: 5, align: "center" });
+  ui.tooltip(title).row(id, () => { glyph(g, 15, tok("accent")); ui.style(__l10nStyle("res")).id(`${id}-v`).label(text); }, { spacing: 5, align: "center" });
 }
 function topBar(st: State, L: Layout): number {
   const lim = st.ruleset.limits;
@@ -753,15 +774,15 @@ function topBar(st: State, L: Layout): number {
         const objW = Math.max(80, w - clockW - (two ? 0 : resW) - (two ? 8 : 16));
         ui.column("hud-objective", () => {
           ui.row("obj-row", () => {
-            if (!two) ui.style("hud-label").label(T("Objective"));
+            if (!two) ui.style(__l10nStyle("hud-label")).label(T("Objective"));
             para(obj, objW - 28 - (two ? 0 : textWidth(T("Objective"), "hud-label") + 12), "hud-text", "objective-text");
           }, { spacing: 12, align: "center" });
           if (frac !== null) ui.progress(Math.min(1, frac), objW - 30);
         }, { style: "hud-cell", width: objW, spacing: 4, justify: "center" });
         if (!two) ui.row("hud-resources", resources, { style: "hud-cell", spacing: 12, align: "center" });
         ui.row("hud-clock", () => {
-          ui.style("res").id("hud-timer").label(timeText);
-          if (ui.style("btn", "btn-icon", { width: 44 }).id("btn-pause").button(T("Pause (Esc)"), {
+          ui.style(__l10nStyle("res")).id("hud-timer").label(timeText);
+          if (ui.style(__l10nStyle("btn"), __l10nStyle("btn-icon"), __l10nStyle({ width: 44 })).id("btn-pause").button(T("Pause (Esc)"), {
             content: () => glyph("pause", 16, tok("text")),
           })) { sfx("ui_click"); pauseGame(); }
         }, { style: "hud-cell", spacing: 12, align: "center" });
@@ -782,7 +803,7 @@ function railToggle(side: "left" | "right", L: Layout): void {
   void L;
   const open = app.rails[side];
   const label = side === "left" ? T("Toggle shift report") : T("Toggle actions");
-  if (ui.style("btn", "btn-icon", { width: 44, minHeight: 44 }).id(`rail-toggle-${side}`).button(label, {
+  if (ui.style(__l10nStyle("btn"), __l10nStyle("btn-icon"), __l10nStyle({ width: 44, minHeight: 44 })).id(`rail-toggle-${side}`).button(label, {
     selected: open,
     content: () => ui.widget("", {
       role: "none", size: { width: 18, height: 18 },
@@ -817,16 +838,16 @@ function layerLabels(st: State, L: Layout): void {
     const name = T("L{n}", { n: i + 1 });
     const desc = !Ly.unlocked ? T("Layer {n} — sealed", { n: i + 1 }) : T("Layer {n} — crew {crew}, bin {bin}%", { n: i + 1, crew: Ly.workers, bin: Math.floor((Ly.milliOre * 100) / R.binCapMilli(st, i)) }) + (blockedL ? " " + T("BLOCKED") : "") + (flare ? " " + T("FLARE") : "");
     const r = ui.place(`lbl-${i}`, { anchor: "top-start", x, y }, () => {
-      if (ui.style(...cls, pulse).id(`layer-${i + 1}`).button(name, {
+      if (ui.style(...__l10nStyle(cls), __l10nStyle(pulse)).id(`layer-${i + 1}`).button(name, {
         selected: i === app.selectedLayer,
         tooltip: desc,
         content: () => ui.row(`lbl-${i}-face`, () => {
-          ui.style(textCls).label(name);
+          ui.style(__l10nStyle(textCls)).label(name);
           if (!Ly.unlocked) glyph("lock", 12, color);
           else {
             glyph("workers", 12, color);
-            ui.style(textCls).label(String(Ly.workers));
-            if (blockedL) { glyph("warn", 10, color); ui.style(textCls).label(T("FULL")); }
+            ui.style(__l10nStyle(textCls)).label(String(Ly.workers));
+            if (blockedL) { glyph("warn", 10, color); ui.style(__l10nStyle(textCls)).label(T("FULL")); }
             if (flare) glyph("flare", 12, color);
           }
         }, { spacing: 3, align: "center" }),
@@ -880,7 +901,7 @@ function playHud(L: Layout): void {
   const fa = render.flashAlpha();
   if (fa > 0.01) draw.rect(0, 0, f.width, f.height, `rgba(255,255,255,${fa.toFixed(3)})`, { blend: "add" });
   if (app.countdownLeft > 0) {
-    ui.place("countdown", { anchor: "top", y: L.lh * 0.4 - 40 }, () => ui.style("countdown").id("countdown").label(String(Math.ceil(app.countdownLeft / 600))));
+    ui.place("countdown", { anchor: "top", y: L.lh * 0.4 - 40 }, () => ui.style(__l10nStyle("countdown")).id("countdown").label(String(Math.ceil(app.countdownLeft / 600))));
   }
 }
 /** A rail panel of fixed height whose content scrolls when taller (.rail { overflow-y: auto }). */
@@ -936,8 +957,8 @@ function toasts(L: Layout): void {
       ui.column("toast-col", () => {
         app.toasts.forEach((t, i) => {
           const cls = t.kind === "err" ? "toast-err" : t.kind === "good" ? "toast-good" : "toast";
-          if (textWidth(t.text, cls) + 40 <= w) ui.style(cls).id(`toast-${i}`).label(t.text);
-          else ui.style(cls).id(`toast-${i}`).paragraph(t.text, w - 40);
+          if (textWidth(t.text, cls) + 40 <= w) ui.style(__l10nStyle(cls)).id(`toast-${i}`).label(t.text);
+          else ui.style(__l10nStyle(cls)).id(`toast-${i}`).paragraph(t.text, w - 40);
         });
       }, { spacing: 6, align: "center" });
     });

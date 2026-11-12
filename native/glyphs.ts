@@ -1,3 +1,6 @@
+import { localizedDrawOptions as __l10nDrawOptions } from "./l10n/font.ts";
+// localization-runtime:attached
+import { localizedFont as __l10nFont, localizedCanvasFont as __l10nCanvasFont } from "./l10n/font.ts";
 // The browser build's text symbols: ◈ credits, ↻ income, ⚒ workers,
 // 🔒 sealed, ✦ flare, ▲ a full bin, ⏸ pause. They draw as font characters,
 // as the browser build did, in the engine's StarHermit Emoji on every system
@@ -29,7 +32,7 @@ function ink(g: Glyph): Ink {
   let m = inks.get(g);
   if (m) return m;
   probe ??= new OffscreenCanvas(4, 4).getContext("2d")!;
-  probe.font = CANVAS_FONT;
+  probe.font = __l10nCanvasFont(CANVAS_FONT);
   probe.textAlign = "center";
   probe.textBaseline = "alphabetic";
   const t = probe.measureText(CHARS[g]);
@@ -42,7 +45,7 @@ function ink(g: Glyph): Ink {
 export function drawGlyph(g: Glyph, x: number, y: number, s: number, color: string): void {
   const m = ink(g), size = m.scale * s;
   // draw.text's y is the line box's top: the baseline sits the font's ascent below it.
-  draw.text(CHARS[g], x - m.dx * size, y - (m.dy + m.asc) * size, { size, font: FONT, color, align: "center" });
+  draw.text(CHARS[g], x - m.dx * size, y - (m.dy + m.asc) * size, __l10nDrawOptions({ size, font: __l10nFont(FONT), color, align: "center" }));
 }
 
 /** A glyph in the layout, `size` logical pixels square. */
