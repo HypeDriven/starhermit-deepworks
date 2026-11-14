@@ -1,5 +1,7 @@
 # Deepworks
 
+**[▶ Play Deepworks on StarHermit](https://dashboard.starhermit.com/play/5452749e-719f-4ef5-888b-8e3d961ef97c)**
+
 An idle optimization game set in a layered underground mine with glowing
 mineral seams. Assign workers, upgrade shafts and transport, find the
 bottleneck, fix it, automate — and keep earning while you're away.
