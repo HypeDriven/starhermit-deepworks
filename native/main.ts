@@ -88,8 +88,8 @@ export function announce(text: string, assertive = false): void {
 }
 /** js/ui.js toast(): 2.6 s; `kind` err | good. */
 export function toast(text: string, kind = ""): void {
-  app.toasts.push({ text, kind, until: now() + 2.6 });
-  if (app.toasts.length > 3) app.toasts.shift();
+  const play = app.screen === "play" && !!app.run;
+  ui.toast!(text, { kind: kind === "err" ? "error" : kind === "good" ? "success" : "info", duration: 2.6, position: play ? "bottom" : "top", offset: play ? 90 : 8, style: kind === "err" ? "toast-err" : kind === "good" ? "toast-good" : "toast", dismissible: false });
 }
 export function sfx(name: audio.Cue): void { audio.play(name); }
 export function profile(): ReturnType<typeof platform.profile> { return platform.profile(); }

@@ -1,3 +1,4 @@
+import { bindings } from "starhermit:input";
 import { localizedStyle as __l10nStyle } from "./l10n/font.ts";
 // localization-runtime:attached
 import { openLocalizedOptions as __l10nOptions } from "./l10n/menu.ts";
@@ -122,7 +123,7 @@ function art(id: string, path: string, w: number, h: number): void {
 }
 
 // ------------------------------------------------------------------ the frame
-export function drawScreens(): void {
+function drawScreensImmediate(): void {
   const L = layoutNow();
   if (app.screen === "play" && app.run) playHud(L);
   else {
@@ -141,7 +142,7 @@ export function drawScreens(): void {
     }
   }
   modal(L);
-  toasts(L);
+  captions(L);
   if (app.focusNext) {
     const age = frame().frame - app.openedFrame;
     if (age >= 1) ui.setFocus(app.focusNext);
@@ -948,23 +949,18 @@ function modal(L: Layout): void {
   if (!open && !fresh && app.modal === m) app.modal = null;
 }
 
-// ------------------------------------------------------------------ toasts and captions
-function toasts(L: Layout): void {
+// ------------------------------------------------------------------ captions
+function captions(L: Layout): void {
   const play = app.screen === "play" && !!app.run;
-  if (app.toasts.length) {
-    const w = Math.min(L.lw - 24, 520);
-    ui.place("toasts", play ? { anchor: "bottom", y: (L.phone ? 90 : 90) } : { anchor: "top", y: 8 }, () => {
-      ui.column("toast-col", () => {
-        app.toasts.forEach((t, i) => {
-          const cls = t.kind === "err" ? "toast-err" : t.kind === "good" ? "toast-good" : "toast";
-          if (textWidth(t.text, cls) + 40 <= w) ui.style(__l10nStyle(cls)).id(`toast-${i}`).label(t.text);
-          else ui.style(__l10nStyle(cls)).id(`toast-${i}`).paragraph(t.text, w - 40);
-        });
-      }, { spacing: 6, align: "center" });
-    });
-  }
   if (app.caption && settings.captions) {
     const text = app.caption.text;
     ui.place("captions", { anchor: "bottom", y: L.phone && play ? 70 : 8 }, () => para(text, Math.min(L.lw - 40, 520), "captions", "caption-text", true));
   }
+}
+
+export function drawScreens(): void {
+  if (app.screen !== "help") { drawScreensImmediate(); return; }
+  const actions = ["up","down","assign","unassign","hire","shaft","liftcap","liftspeed","unlock","flare","foreman","undo","pause"];
+  const version = JSON.stringify([(app as any).settings ?? (app as any).options ?? {}, (platform as any).options ?? {}, actions.map((action) => bindings(action))]);
+  ui.retain!("help-screen", version, drawScreensImmediate);
 }
