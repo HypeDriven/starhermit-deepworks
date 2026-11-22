@@ -887,6 +887,7 @@ export function applyLook(next: Look): void {
     vignette: { amount: 0.28, inner: 0.38, outer: 0.9, scale: [1.1, 1] },
   } : null;
   renderer.antialias = next.antialias;
+  renderer.motionBlur = next.bloom !== null ? { intensity: 0.25, samples: 8, maxPixels: 16, targetFps: 60, camera: false } : null;
 }
 export function setReducedMotion(on: boolean): void { reducedMotion = on; if (on) shakeAmp = 0; }
 export function setSelectedLayer(i: number | null): void { selectedLayer = typeof i === "number" && i >= 0 ? i : null; }
