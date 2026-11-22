@@ -12,7 +12,7 @@
     "metadataSource": "starhermit.txt",
     "createdAt": "2026-09-01T07:00:59.974698+00:00",
     "coverArtSource": "manifest",
-    "coverArtUpdatedAt": "2026-11-18T16:51:12.221706+00:00",
+    "coverArtUpdatedAt": "2026-11-22T14:19:49.480886+00:00",
     "submittedByUserId": "2712e04e-461b-4d23-81ae-e40b429128a8",
     "submittedByUsername": "starhermit",
     "hosting": {
@@ -22,9 +22,9 @@
       "pinnedCommitSha": null,
       "deployedCommitSha": null,
       "deployError": null,
-      "deployedAt": "2026-11-18T16:51:12.210348+00:00",
+      "deployedAt": "2026-11-22T14:19:49.46886+00:00",
       "externalLaunchUrl": null,
-      "engineVersion": "1.44.1",
+      "engineVersion": "1.47.0",
       "deployWarning": null
     },
     "description": "Manage a layered mine, assign crews, upgrade your lift, and automate production to keep earnings growing.",
@@ -36,19 +36,19 @@
     "links": [],
     "isDisabled": false
   },
-  "publishedAt": "2026-11-18T16:51:12.179Z",
-  "sourceCommit": "79953bc58149728ac7c4ead541fe8683996c270d",
-  "bytesReceived": 3623294,
-  "archiveSha256": "fdd5adeb377d467832857f067deb6dc9008371ca27bcd73b1a6228bcc16abcc2",
+  "publishedAt": "2026-11-22T14:19:49.867Z",
+  "sourceCommit": "7941145bb07106b4e3238e66040a8945874eb271",
+  "bytesReceived": 3623456,
+  "archiveSha256": "7282ae4710931e05b357525e346fcfebc73e7d3d842bb12e0d3540bb5a6d02ac",
   "indexSha256": "32f7bd1b52ad8a3b1604e8f45a3926f8d41d05fe5c806189d683921d0db06734",
   "result": {
     "clientPublished": true,
     "serverImageLoaded": false,
     "imageDigest": null,
-    "bytesReceived": 3623294,
+    "bytesReceived": 3623456,
     "mode": "replace",
     "filesRemoved": 0,
-    "engineVersion": "1.44.1",
+    "engineVersion": "1.47.0",
     "deployWarning": null
   },
   "liveVerification": {
