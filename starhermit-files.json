@@ -45,7 +45,7 @@
     "native/render.ts": {"sha256": "561c967018f472352e7fa63b4a3c0a9428fd64fd7ea16e462b491c63e2fe15d5", "size": 46032},
     "native/screens.ts": {"sha256": "d3321724bb9caf60bf17ce0b335f997ed6cb4529257b939f889c5e47d30b7665", "size": 59932},
     "native/style.ts": {"sha256": "51587c4e87e2d97827b3e22bfe954a0a4000f509229cecb7795a836dc7195ef5", "size": 4412},
-    "publication.json": {"sha256": "c268adaf8ca3932c2c52718c7a277d704cba1c10c6721d0810ca96723fc494a3", "size": 4129},
+    "publication.json": {"sha256": "4157bf394ce93e5eec18d9abef69fe5e06f8e18ad4342dc201a752513b01ad4f", "size": 4129},
     "score-script.js": {"sha256": "3c9062d8c0a731fe3836f10261eb35419b9bd6947a10d41e65216f2d55e2e043", "size": 2491},
     "sfx/achievement-star.opus": {"sha256": "55b1036ae93294dd47b6de022e0917d7260676c597316319df7a725681e43c87", "size": 28804},
     "sfx/away-return.opus": {"sha256": "8688e0261699e3250e51e41069f46467d46b4e194d16f099fb21c2580dcdf27c", "size": 29495},
