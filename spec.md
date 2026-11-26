@@ -6,7 +6,7 @@
 
 **Pitch:** Crew a layered mine, feed one overworked lift, find the bottleneck, fix it, automate — and keep earning while you're away.
 **Genre:** idle optimization / throughput puzzle. **Players:** 1 (asynchronous daily score comparison). **Session:** 2–4 min lessons, 3–20 min journey stages, 15 min daily, endless practice.
-**Platforms:** a StarHermit engine script game (engine 1.47.0, host API 1.47, `engine.minor=47`): played natively by the StarHermit client and in desktop and mobile browsers (portrait and landscape) by the engine's web runtime, from one package.
+**Platforms:** a StarHermit engine script game (engine 1.50.0, host API 1.50, `engine.minor=50`): played natively by the StarHermit client and in desktop and mobile browsers (portrait and landscape) by the engine's web runtime, from one package.
 **Rendering:** a `starhermit:scene` diorama of a vertical mine cross-section under a `starhermit:ui` HUD; every action is also a button in the HUD.
 
 | Path | Role |
@@ -228,7 +228,7 @@ Nine locales ship: **en-US, en-GB, es-419, es-ES, de-DE, fr-FR, fr-CA, pt-BR, it
 
 ## 12. StarHermit integration
 
-`starhermit.txt`: `name=Deepworks`, `description`, `owner`, `server=score-script.js`, `cover=cover.jpg`, `launch=index.html`, `engine.api=1`, `engine.entry=native/main.ts`, `engine.version=1.47.0`, `engine.minor=47`, `engine.capabilities=platform,storage,clipboard`, `control.*` lines for `up`, `down`, `assign`, `unassign`, `hire`, `shaft`, `liftcap`, `liftspeed`, `unlock`, `flare`, `foreman`, `undo`, `pause` (action names are lowercase now: a player's old rebinds of `liftCap`/`liftSpeed`, and every old SDK binding override, start from the defaults again), `engine.group.*` headings and `engine.gamepad.*` defaults.
+`starhermit.txt`: `name=Deepworks`, `description`, `owner`, `server=score-script.js`, `cover=cover.jpg`, `launch=index.html`, `engine.api=1`, `engine.entry=native/main.ts`, `engine.version=1.50.0`, `engine.minor=50`, `engine.capabilities=platform,storage,clipboard`, `control.*` lines for `up`, `down`, `assign`, `unassign`, `hire`, `shaft`, `liftcap`, `liftspeed`, `unlock`, `flare`, `foreman`, `undo`, `pause` (action names are lowercase now: a player's old rebinds of `liftCap`/`liftSpeed`, and every old SDK binding override, start from the defaults again), `engine.group.*` headings and `engine.gamepad.*` defaults.
 
 All platform I/O is the runtime's modules (`native/platform.ts`):
 
@@ -298,9 +298,9 @@ The string tables include complete regional variants for `fr-BE`, `de-BE`, `en-S
 
 <!-- regional-localization:end -->
 
-## Engine 1.47.0
+## Engine 1.50.0
 
-Browser play uses the WebGPU-only StarHermit 1.47.0 web runtime. Automatic ray-traced shadows are enabled on supported Vulkan devices, with mapped-shadow fallbacks elsewhere. Packaging creates block-compressed runtime textures and compressed glTF copies, retaining original image fallbacks.
+Browser play uses the WebGPU-only StarHermit 1.50.0 web runtime. Automatic ray-traced shadows are enabled on supported Vulkan devices, with mapped-shadow fallbacks elsewhere. Packaging creates block-compressed runtime textures and compressed glTF copies, retaining original image fallbacks.
 
 The help screen replays through retained native UI while its contents, options, layout and key bindings are unchanged.
 
