@@ -212,7 +212,9 @@ function importLegacy(): void {
 export function initPlatform(): void {
   const cur = saves.load();
   lastSavedAt = cur?.savedAt ?? 0;
-  current = cur?.data ?? null;
+  // Engine 1.51 save values can also be bytes (Uint8Array); this game only writes JSON, so bytes read as no save.
+  const data = cur?.data;
+  current = data instanceof Uint8Array ? null : (data ?? null);
   live = S.loadProfile();
   for (const k of KEYS) readSetting(k);
   adoptSettingsFrom(live.settings);
